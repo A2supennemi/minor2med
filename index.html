@@ -22,8 +22,9 @@ body{background:var(--bg);color:var(--ink);font:15px/1.5 Arial,"Liberation Sans"
 a{color:inherit}
 header{position:sticky;top:0;z-index:5;background:linear-gradient(light-dark(#fff,#1c1c1f),light-dark(#f4f4f4,#18181a));box-shadow:0 1px 4px rgba(0,0,0,.12);padding:8px max(2vw,12px)}
 header .in{display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:1200px;margin:auto}
-.logo{display:flex;align-items:center;text-decoration:none;margin-right:auto;background:#fff;border-radius:4px;padding:2px 4px}
-.logo img{display:block;height:64px;width:auto}
+.logo{display:flex;align-items:center;text-decoration:none;margin-right:auto}
+.logo img{display:block;height:58px;width:auto}
+@media (prefers-color-scheme:dark){.logo img{filter:brightness(0) invert(.93)}}
 .modal{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;padding:8vh 16px}
 .modal[hidden]{display:none}
 .mbox{position:relative;background:var(--bg,light-dark(#fff,#1c1c1f));color:var(--ink);width:min(420px,100%);border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.3);padding:26px 24px 22px}
@@ -189,7 +190,7 @@ footer .pio{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 </head>
 <body>
 <header><div class="in">
- <a class="logo" href="#accueil" aria-label="Minor2meD, accueil"><img src="logo.png" alt="Minor 2 Med" width="114" height="64"></a>
+ <a class="logo" href="#accueil" aria-label="Minor2meD, accueil"><img src="logo.png" alt="Minor 2 Med" width="103" height="58"></a>
  <a class="hb r" href="#accueil" id="hm"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h4v4H3zM9 6h12v2H9zM3 10h4v4H3zM9 11h12v2H9zM3 15h4v4H3zM9 16h12v2H9z"/></svg><span class="l">Matières</span></a>
  <a class="hb g" href="#ajouter"><svg viewBox="0 0 24 24" aria-hidden="true" style="width:15px"><path d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7z"/></svg><span class="l">Ajouter des QCM</span></a>
  <a class="hb g" href="#carnet"><span class="l">Carnet d’erreurs</span><svg viewBox="0 0 24 24" aria-hidden="true" style="width:16px"><path d="M5 3h12l2 2v16H5zM8 8h8v2H8zm0 4h8v2H8z"/></svg><span class="n" id="pc">0</span></a>
