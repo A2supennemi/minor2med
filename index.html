@@ -107,6 +107,8 @@ main{padding:22px max(2vw,12px) 50px}
 .seg button{font:14px Arial,sans-serif;min-height:38px;padding:0 14px;border-radius:4px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
 .seg button[aria-pressed=true]{background:var(--ses);border-color:var(--ses);color:#fff}
 .seg button:disabled{opacity:.4;cursor:not-allowed}
+.secin{display:inline-flex;align-items:center;gap:6px;font-size:14px;border:1px solid var(--line);border-radius:4px;padding:0 10px;min-height:38px;box-sizing:border-box}
+.secin input{width:62px;font:14px Arial,sans-serif;padding:4px 6px;border:1px solid var(--line);border-radius:3px;background:var(--bg);color:var(--ink)}
 .resume{background:var(--bg);border:1px solid var(--line);border-left:4px solid var(--ses);padding:10px 14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px}
 /* session */
 .q{background:var(--card);box-shadow:0 1px 4px rgba(0,0,0,.18);border-radius:3px 3px 0 0;padding:20px 20px 26px}
@@ -221,7 +223,7 @@ let MATS = [
  {id:'embryologie', ue:'UE5', name:'Embryologie', chaps:[
   ['fecondation','Fécondation'],['semaine-1','Semaine 1'],['semaine-2','Semaine 2'],['semaine-3','Semaine 3'],['semaine-4','Semaine 4'],
   ['feuillets','Évolution des feuillets embryonnaires'],['placenta','Placenta et annexes']]},
- {id:'biologie-cellulaire', ue:'UE3', name:'Biologie cellulaire', sec:108, chaps:[
+ {id:'biologie-cellulaire', ue:'UE3', name:'Biologie cellulaire', chaps:[
   ['cytosquelette','Cytosquelette'],['noyau','Noyau'],['signalisation','Signalisation'],['systeme-endomembranaire','Système endomembranaire']]}
 ];
 const BANKS = {}, ITEM = {}, BUILTIN = D.banks.slice(), BUILTIN_MATS = JSON.parse(JSON.stringify(MATS));
@@ -341,7 +343,8 @@ function chapitre(mid,cid){
 function setup(bid){
   const bk=BANKS[bid], s=B(bid), M=MAT(bk.mat), N=bk.q.length;
   st.prefs=st.prefs||{n:20,mode:'new',ord:'rand',chrono:false};
-  const P=st.prefs, sec=secOf(bk.mat);
+  const P=st.prefs; P.secs=P.secs||{}; const sec=+P.secs[bk.mat]||secOf(bk.mat);
+  const fmt=x=>x%60===0?(x/60)+' min':x>60?Math.floor(x/60)+' min '+(x%60)+' s':x+' s';
   const notDone=[...bk.q.keys()].filter(k=>!s.done[k]), missed=[...bk.q.keys()].filter(k=>s.done[k]&&disc(bid,k));
   const pool=P.mode==='new'?notDone:P.mode==='ko'?missed:[...bk.q.keys()];
   const run=s.i>0&&s.i<s.order.length;
@@ -353,9 +356,12 @@ function setup(bid){
    <div class="opt"><span>Nombre de QCM</span>${seg('n',[...sizes.map(x=>[x,String(x)]),['all','Tous ('+N+')']])}</div>
    <div class="opt"><span>Questions</span>${seg('mode',[['new','Pas encore faites ('+notDone.length+')',!notDone.length],['all','Toutes ('+N+')'],['ko','Mes questions ratées ('+missed.length+')',!missed.length]])}</div>
    <div class="opt"><span>Ordre</span>${seg('ord',[['rand','Aléatoire'],['seq','Dans l’ordre']])}</div>
-   <div class="opt"><span>Chronomètre</span>${seg('chrono',[[false,'Sans'],[true,'Avec · '+(sec===60?'1 min':sec+' s')+' par QCM']])}<p>Validation automatique à la fin du temps.</p></div>
+   <div class="opt"><span>Chronomètre</span>${seg('chrono',[[false,'Sans'],[true,'Avec']])}${P.chrono?'':'<p>Validation automatique à la fin du temps.</p>'}</div>
+   ${P.chrono?`<div class="opt"><span>Temps par QCM</span><div class="seg" role="group">${[30,45,60,90,120].map(x=>`<button type="button" data-sec="${x}" aria-pressed="${sec===x}">${fmt(x)}</button>`).join('')}<label class="secin"><span>Autre</span><input type="number" id="secx" min="10" max="600" step="5" value="${[30,45,60,90,120].includes(sec)?'':sec}" placeholder="s" aria-label="Temps personnalisé en secondes"><span>s</span></label></div><p>${fmt(sec)} par QCM · validation automatique à la fin du temps.</p></div>`:''}
    <button class="mainbtn" type="button" id="go" style="background:var(--ses);border-radius:3px" ${pool.length?'':'disabled'}>${pool.length?`Commencer · ${Math.min(pool.length,P.n==='all'?N:+P.n)} QCM`:'Aucune question dans cette sélection'}</button></div>`;
   view.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{ const k=b.dataset.k; let v=b.dataset.v; if(k==='chrono') v=(v==='true'); else if(k==='n'&&v!=='all') v=+v; P[k]=v; save(); setup(bid); }));
+  view.querySelectorAll('[data-sec]').forEach(b=>b.addEventListener('click',()=>{ P.secs[bk.mat]=+b.dataset.sec; save(); setup(bid); }));
+  const sx=document.getElementById('secx'); if(sx) sx.addEventListener('change',()=>{ const v=Math.round(+sx.value); if(v>=10&&v<=600){ P.secs[bk.mat]=v; save(); setup(bid); } else { toast('Choisis un temps entre 10 et 600 secondes'); sx.value=''; } });
   const go=document.getElementById('go'); if(go&&pool.length) go.addEventListener('click',()=>{
     let sel=pool.slice(); if(P.ord==='rand') for(let i=sel.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[sel[i],sel[j]]=[sel[j],sel[i]];}
     sel=sel.slice(0,P.n==='all'?N:+P.n);
