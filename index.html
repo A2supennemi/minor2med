@@ -470,21 +470,29 @@ function review(){
 function rate(g){ grade(rev.id,g); rev={id:null,shown:false}; counts(); review(); window.scrollTo(0,0); }
 
 /* ---------- carnet ---------- */
-let filt='tous';
+let filt='tous', mfilt='tous';
+const matOfCard=id=>BANKS[ITEM[id].b].mat;
+const selIds=()=>cardIds().filter(id=>mfilt==='tous'||matOfCard(id)===mfilt);
+const matIdx=mid=>{ const i=MATS.findIndex(m=>m.id===mid); return i<0?99:i; };
+const deckName=mid=>'Minor2meD::Carnet d’erreurs::'+((MAT(mid)&&MAT(mid).name)||mid).replace(/::/g,' ');
+const matSlug=mid=>((MAT(mid)&&MAT(mid).name)||mid).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9]+/g,'_');
 function carnet(){
-  const ids=cardIds().sort((a,b)=>st.cards[a].due-st.cards[b].due);
+  const all=cardIds(), mused=[...new Set(all.map(matOfCard))].sort((a,b)=>matIdx(a)-matIdx(b)); if(mfilt!=='tous'&&!mused.includes(mfilt)) mfilt='tous';
+  const ids=selIds().sort((a,b)=>st.cards[a].due-st.cards[b].due);
   const used=[...new Set(ids.map(id=>ITEM[id].b))]; if(filt!=='tous'&&!used.includes(filt)) filt='tous';
+  const mname=mfilt==='tous'?'':((MAT(mfilt)||{}).name||'');
   const shown=ids.filter(id=>filt==='tous'||ITEM[id].b===filt);
-  view.innerHTML=`<div class="phead"><span class="bar"></span><div><small>Révision</small><h1>Carnet d’erreurs</h1></div><span class="ct"><b>${ids.length}</b>carte${ids.length>1?'s':''}</span></div>
+  view.innerHTML=`<div class="phead"><span class="bar"></span><div><small>Révision</small><h1>Carnet d’erreurs</h1></div><span class="ct"><b>${ids.length}</b>carte${ids.length>1?'s':''}${mname?' · '+esc(mname):''}</span></div>
    <div class="box2">
-   <div class="tools"><label for="pf">Banque</label><select id="pf"><option value="tous">Toutes</option>${used.map(b=>`<option value="${b}" ${b===filt?'selected':''}>${esc(bankLabel(b))}</option>`).join('')}</select>
-    <a class="btn" href="#revision">Réviser (${dueIds().length})</a><button class="btn" id="apk" type="button" ${ids.length?'':'disabled'}>Exporter vers Anki (.apkg)</button><button class="btn o" id="exp" type="button" ${ids.length?'':'disabled'}>Fichier texte pour Anki</button><button class="btn o" id="cp" type="button" ${ids.length?'':'disabled'}>Copier pour Anki</button><button class="btn o" id="cpdf" type="button" ${ids.length?'':'disabled'}>PDF de mes erreurs</button></div>
+   <div class="tools"><label for="pm">Matière</label><select id="pm"><option value="tous">Toutes (${all.length})</option>${mused.map(m=>`<option value="${m}" ${m===mfilt?'selected':''}>${esc((MAT(m)||{}).name||m)} (${all.filter(id=>matOfCard(id)===m).length})</option>`).join('')}</select><label for="pf">Banque</label><select id="pf"><option value="tous">Toutes</option>${used.map(b=>`<option value="${b}" ${b===filt?'selected':''}>${esc(bankLabel(b))}</option>`).join('')}</select>
+    <a class="btn" href="#revision">Réviser (${dueIds().length})</a><button class="btn" id="apk" type="button" ${ids.length?'':'disabled'}>Exporter vers Anki (.apkg)${mname?' · '+esc(mname):''}</button><button class="btn o" id="exp" type="button" ${ids.length?'':'disabled'}>Fichier texte pour Anki</button><button class="btn o" id="cp" type="button" ${ids.length?'':'disabled'}>Copier pour Anki</button><button class="btn o" id="cpdf" type="button" ${ids.length?'':'disabled'}>PDF de mes erreurs</button></div>
    ${shown.length?`<ul class="list">${shown.map(id=>{ const {b,q,it}=ITEM[id], c=st.cards[id], Qq=BANKS[b].q[q];
      return `<li><span class="t">${esc(it.t)}</span><span class="due ${c.due<=Date.now()?'now':''}">${esc(dueLabel(c))}</span>
       <span class="m">${isTrue(it)?'VRAI':'FAUX'} · ${esc(bankLabel(b))} · question ${Qq.n} · ratée ${c.wrong} fois <button class="btn o sm" type="button" data-del="${esc(id)}">Retirer</button></span></li>`; }).join('')}</ul>`
    :`<p style="margin-top:16px">Aucune erreur pour l’instant. Fais des QCM pour remplir ton carnet.</p>`}
-   <p class="note"><b>Exporter vers Anki (.apkg)</b> : double-clique sur le fichier téléchargé, Anki l’ouvre et crée le paquet « Minor2meD › Carnet d’erreurs », schémas compris. Réexporter plus tard met à jour les cartes déjà importées sans les dupliquer.<br><b>Fichier texte</b> : ne l’ouvre pas en double-cliquant (il s’ouvre comme du texte). Ouvre Anki, puis Fichier › Importer, et choisis ce fichier ; les schémas n’y sont pas inclus.</p></div>`;
+   <p class="note"><b>Un carnet par matière</b> : dans Anki, chaque matière a son propre paquet (« Minor2meD › Carnet d’erreurs › Histologie », « › Biologie cellulaire »…). Choisis une matière ci-dessus pour n’exporter que celle-ci, ou « Toutes » pour tout exporter d’un coup, chaque matière restant dans son paquet.<br><b>Exporter vers Anki (.apkg)</b> : double-clique sur le fichier téléchargé, Anki l’ouvre et range les cartes dans le paquet de leur matière, schémas compris. Réexporter plus tard met à jour les cartes déjà importées sans les dupliquer.<br><b>Fichier texte</b> : ne l’ouvre pas en double-cliquant (il s’ouvre comme du texte). Ouvre Anki, puis Fichier › Importer, et choisis ce fichier ; les schémas n’y sont pas inclus.</p></div>`;
   document.getElementById('pf').addEventListener('change',e=>{filt=e.target.value;carnet();});
+  document.getElementById('pm').addEventListener('change',e=>{mfilt=e.target.value;filt='tous';carnet();});
   view.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{delete st.cards[b.dataset.del];save();counts();carnet();}));
   const e=document.getElementById('exp'); if(e) e.addEventListener('click',exportAnki);
   const ap=document.getElementById('apk'); if(ap) ap.addEventListener('click',exportApkg);
@@ -492,12 +500,12 @@ function carnet(){
   const c=document.getElementById('cp'); if(c) c.addEventListener('click',async()=>{ try{ await navigator.clipboard.writeText(ankiText()); toast('Copié : colle-le dans un fichier .txt puis importe-le dans Anki'); }catch(err){ toast('Copie refusée par le navigateur'); } });
 }
 function ankiText(){ const clean=s=>String(s).replace(/[\t\r\n]+/g,' ');
-  const rows=cardIds().map(id=>{ const {b,q,it}=ITEM[id], Qq=BANKS[b].q[q];
+  const rows=selIds().map(id=>{ const {b,q,it}=ITEM[id], Qq=BANKS[b].q[q];
     const front=`<div style="color:#666;font-size:13px">${esc(bankLabel(b))} · Q${Qq.n}${Qq.page?' · fiche '+esc(Qq.page):''}${Qq.fig?' · voir le schéma':''}<br>${esc(Qq.stem.split(',')[0])}</div><b>${esc(it.t)}</b><br><br>Vrai ou faux ?`;
     const back=`<b style="color:${isTrue(it)?'#1fa83a':'#e3131b'}">${labOf(it)}</b> ${corrBody(it)}${Qq.rappel?'<hr><i>Rappel :</i> '+esc(Qq.rappel):''}`;
-    return [front,back,'Minor2meD '+BANKS[b].mat+' '+BANKS[b].chap+' '+b].map(clean).join('\t'); });
-  return '#separator:tab\n#html:true\n#tags column:3\n'+rows.join('\n')+'\n'; }
-async function exportAnki(){ const data=ankiText(), fn='Minor2meD_carnet_erreurs_anki.txt';
+    return [front,back,'Minor2meD '+BANKS[b].mat+' '+BANKS[b].chap+' '+b,deckName(BANKS[b].mat)].map(clean).join('\t'); });
+  return '#separator:tab\n#html:true\n#tags column:3\n#deck column:4\n'+rows.join('\n')+'\n'; }
+async function exportAnki(){ const data=ankiText(), fn='Minor2meD_carnet_erreurs'+(mfilt==='tous'?'':'_'+matSlug(mfilt))+'_anki.txt';
   try{ const dl=window.claude&&window.claude.use?await window.claude.use('downloads'):null;
     if(dl) await dl.save({filename:fn,data});
     else { const u=URL.createObjectURL(new Blob([data],{type:'text/plain;charset=utf-8'})); const a=document.createElement('a'); a.href=u; a.download=fn; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),2000); }
@@ -572,7 +580,7 @@ function errorsPdf(title, entries, stats, carnetMode){
   saveBlob(fn, doc.output('blob')).then(ok=>toast(ok?'PDF de tes erreurs téléchargé':'Téléchargement annulé'));
 }
 function carnetPdf(){
-  const by={}; cardIds().forEach(id=>{ const {b,q,j}=ITEM[id]; const key=b+'|'+q; (by[key]=by[key]||{b,k:q,w:[]}).w.push(j); });
+  const by={}; selIds().forEach(id=>{ const {b,q,j}=ITEM[id]; const key=b+'|'+q; (by[key]=by[key]||{b,k:q,w:[]}).w.push(j); });
   const entries=Object.values(by).sort((a,b)=>a.b.localeCompare(b.b)||a.k-b.k);
   errorsPdf('Carnet d’erreurs', entries, null, true);
 }
@@ -583,7 +591,7 @@ function loadScript(src){ return new Promise((ok,ko)=>{ if(document.querySelecto
 async function sha1hex(s){ const h=await crypto.subtle.digest('SHA-1', new TextEncoder().encode(s)); return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join(''); }
 const stripHtml=s=>String(s).replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&amp;/g,'&').replace(/\s+/g,' ').trim();
 async function exportApkg(){
-  const ids=cardIds(); if(!ids.length) return;
+  const ids=selIds(); if(!ids.length) return;
   toast('Préparation du paquet Anki…');
   try{
     await loadScript('lib/sql-asm.js'); await loadScript('lib/jszip.min.js');
@@ -596,6 +604,7 @@ CREATE TABLE graves (usn integer not null, oid integer not null, type integer no
 CREATE INDEX ix_notes_usn on notes (usn); CREATE INDEX ix_cards_usn on cards (usn); CREATE INDEX ix_revlog_usn on revlog (usn);
 CREATE INDEX ix_cards_nid on cards (nid); CREATE INDEX ix_cards_sched on cards (did, queue, due); CREATE INDEX ix_revlog_cid on revlog (cid); CREATE INDEX ix_notes_csum on notes (csum);`);
     const now=Math.floor(Date.now()/1000), MID=1732460000001, DID=1732460000002;
+    const didOf=m=>1732460001000+(parseInt(m.split('').reduce((h,c)=>(h*31+c.charCodeAt(0))>>>0,7).toString().slice(-6),10));
     const model={id:MID,name:'Minor2meD',type:0,mod:now,usn:-1,sortf:0,did:DID,
       tmpls:[{name:'Carte',ord:0,qfmt:'{{Recto}}',afmt:'{{FrontSide}}<hr id=answer>{{Verso}}',did:null,bqfmt:'',bafmt:''}],
       flds:[{name:'Recto',ord:0,sticky:false,rtl:false,font:'Arial',size:20,media:[]},{name:'Verso',ord:1,sticky:false,rtl:false,font:'Arial',size:20,media:[]}],
@@ -604,7 +613,7 @@ CREATE INDEX ix_cards_nid on cards (nid); CREATE INDEX ix_cards_sched on cards (
     const deck=(id,name)=>({id,name,mod:now,usn:-1,lrnToday:[0,0],revToday:[0,0],newToday:[0,0],timeToday:[0,0],collapsed:false,desc:'',dyn:0,conf:1,extendNew:10,extendRev:50});
     const dconf={1:{id:1,name:'Default',new:{delays:[1,10],ints:[1,4,7],initialFactor:2500,separate:true,order:1,perDay:20,bury:false},lapse:{delays:[10],mult:0,minInt:1,leechFails:8,leechAction:0},rev:{perDay:200,ease4:1.3,fuzz:0.05,minSpace:1,ivlFct:1,maxIvl:36500,bury:false,hardFactor:1.2},maxTaken:60,timer:0,autoplay:true,replayq:true,mod:0,usn:0,dyn:false}};
     const conf={activeDecks:[1],curDeck:1,newSpread:0,collapseTime:1200,timeLim:0,estTimes:true,dueCounts:true,curModel:null,nextPos:1,sortType:'noteFld',sortBackwards:false,addToCur:true};
-    db.run('INSERT INTO col VALUES (1,?,?,?,11,0,0,0,?,?,?,?,?)',[now,now*1000,now*1000,JSON.stringify(conf),JSON.stringify({[MID]:model}),JSON.stringify({1:deck(1,'Default'),[DID]:deck(DID,'Minor2meD::Carnet d’erreurs')}),JSON.stringify(dconf),'{}']);
+    db.run('INSERT INTO col VALUES (1,?,?,?,11,0,0,0,?,?,?,?,?)',[now,now*1000,now*1000,JSON.stringify(conf),JSON.stringify({[MID]:model}),JSON.stringify(Object.assign({1:deck(1,'Default'),[DID]:deck(DID,'Minor2meD::Carnet d’erreurs')},...[...new Set(ids.map(matOfCard))].map(m=>({[didOf(m)]:deck(didOf(m),deckName(m))})))),JSON.stringify(dconf),'{}']);
     const media={}, files=[]; let mi=0;
     const mediaName=fig=>{ const name='minor2med_'+fig+'.jpg'; if(!Object.values(media).includes(name)){ media[String(mi)]=name; files.push([String(mi),IMG[fig].split(',')[1]]); mi++; } return name; };
     let n=0;
@@ -614,15 +623,15 @@ CREATE INDEX ix_cards_nid on cards (nid); CREATE INDEX ix_cards_sched on cards (
       const back=`<span class="${isTrue(it)?'v':'f'}">${labOf(it)}</span> ${corrBody(it)}${Qq.rappel?`<div class="rap"><i>Rappel de cours (fiche ${esc(Qq.page)}) :</i> ${esc(Qq.rappel)}</div>`:''}`;
       const sf=stripHtml(front), cs=parseInt((await sha1hex(sf)).slice(0,8),16);
       const nid=1732460100000+n*10, cid=nid+1;
-      const tags=' Minor2meD '+BANKS[b].chap+' '+b+' ';
+      const tags=' Minor2meD '+BANKS[b].mat+' '+BANKS[b].chap+' '+b+' ';
       db.run('INSERT INTO notes VALUES (?,?,?,?,?,?,?,?,?,0,?)',[nid,'m2d_'+id.replace(/[^A-Za-z0-9]/g,'_'),MID,now,-1,tags,front+'\x1f'+back,sf,cs,'']);
-      db.run('INSERT INTO cards VALUES (?,?,?,0,?,?,0,0,?,0,0,0,0,0,0,0,0,?)',[cid,nid,DID,now,-1,n+1,'']);
+      db.run('INSERT INTO cards VALUES (?,?,?,0,?,?,0,0,?,0,0,0,0,0,0,0,0,?)',[cid,nid,didOf(BANKS[b].mat),now,-1,n+1,'']);
       n++;
     }
     const data=db.export(); db.close();
     const zip=new JSZip(); zip.file('collection.anki2',data); zip.file('media',JSON.stringify(media)); files.forEach(([k,b64])=>zip.file(k,b64,{base64:true}));
     const blob=await zip.generateAsync({type:'blob'});
-    const fn='Minor2meD_carnet_erreurs.apkg';
+    const fn='Minor2meD_carnet_erreurs'+(mfilt==='tous'?'':'_'+matSlug(mfilt))+'.apkg';
     let done=false;
     try{ const dl=window.claude&&window.claude.use?await window.claude.use('downloads'):null;
       if(dl){ await dl.save({filename:fn,data:blob}); done=true; } }
