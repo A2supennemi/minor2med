@@ -110,6 +110,8 @@ main{padding:22px max(2vw,12px) 50px}
 .refl{display:inline-block;font-size:12px;font-weight:700;color:var(--ses);border:1px solid var(--ses);border-radius:10px;padding:1px 9px;margin-right:10px;vertical-align:middle}
 .secin{display:inline-flex;align-items:center;gap:6px;font-size:14px;border:1px solid var(--line);border-radius:4px;padding:0 10px;min-height:38px;box-sizing:border-box}
 .secin input{width:62px;font:14px Arial,sans-serif;padding:4px 6px;border:1px solid var(--line);border-radius:3px;background:var(--bg);color:var(--ink)}
+.resumes{max-width:1200px;margin:0 auto 18px}.resumes h2{font-size:16px;margin:0 0 8px}.resumes .resume{margin-bottom:8px}
+
 .resume{background:var(--bg);border:1px solid var(--line);border-left:4px solid var(--ses);padding:10px 14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px}
 /* session */
 .q{background:var(--card);box-shadow:0 1px 4px rgba(0,0,0,.18);border-radius:3px 3px 0 0;padding:20px 20px 26px}
@@ -136,6 +138,8 @@ figure img{max-width:100%;height:auto;max-height:460px;background:#fff}
 .it.nores{grid-template-columns:54px minmax(0,1fr)}.it.nores .res{display:none}.it.nores>button{grid-column:1/3}.it.nores .corr{grid-column:2}
 .mainbtn{display:block;width:100%;min-height:64px;border:0;background:var(--blue);color:#fff;font:clamp(20px,2.2vw,26px) Arial,sans-serif;cursor:pointer;border-radius:0 0 3px 3px;box-shadow:0 1px 4px rgba(0,0,0,.18)}
 .mainbtn:hover{background:var(--blueh)}
+a.mainbtn.resbig{display:flex;align-items:center;justify-content:center;text-align:center;text-decoration:none;background:var(--ses);color:#fff;border-radius:3px;margin-bottom:12px}
+a.mainbtn.resbig:hover{filter:brightness(1.1)}
 .mainbtn:focus-visible{outline:3px solid #8ab4e8;outline-offset:2px}
 .second{display:flex;gap:16px;margin-top:36px;flex-wrap:wrap}
 .second .btn{flex:1 1 220px;min-height:56px;font-size:clamp(18px,2vw,24px)}
@@ -316,8 +320,12 @@ function statsK(bid,ks){ let done=0,good=0,p=0; ks.forEach(k=>{ if(!B(bid).done[
 const statTable=s=>`<table class="stats"><tr><td>Réussite</td><td>${s.reuss}</td></tr><tr><td>Note</td><td>${s.note}</td></tr><tr><td>Questions effectuées</td><td>${s.done} / ${s.n}</td></tr></table>`;
 const crumb=parts=>`<p class="crumb">${parts.map(([h,l])=>h?`<a href="#${h}">${esc(l)}</a>`:`<span>${esc(l)}</span>`).join('<span>›</span>')}</p>`;
 
+function inProgress(bid){ const s=st.banks[bid]; return !!(BANKS[bid]&&s&&Array.isArray(s.order)&&s.order.length&&s.i<s.order.length&&(s.i>0||s.cfg||s.order.some(k=>s.done[k]))); }
+function resumeCards(){ const L=D.banks.filter(b=>inProgress(b.id)).sort((a,b)=>{ const x=st.banks[a.id].cfg||{}, y=st.banks[b.id].cfg||{}; return (y.last||y.started||0)-(x.last||x.started||0); }).slice(0,3);
+  if(!L.length) return ''; return `<div class="resumes"><h2>Reprendre où tu en étais</h2>${L.map(b=>{ const s=st.banks[b.id], M=MAT(b.mat);
+    return `<div class="resume"><span><b>${esc(M?M.name:'')} · ${esc(chapName(b.mat,b.chap))}</b> — ${esc(b.title)} · question ${s.i+1} sur ${s.order.length}</span><a class="btn v" href="#b-${b.id}">Reprendre</a></div>`; }).join('')}</div>`; }
 function home(){
-  view.innerHTML=`<div class="banner">Ces QCM ne couvrent pas forcément toutes les notions et ne remplacent ni les examens blancs ni les annales.</div>
+  view.innerHTML=resumeCards()+`<div class="banner">Ces QCM ne couvrent pas forcément toutes les notions et ne remplacent ni les examens blancs ni les annales.</div>
    <div class="grid2">${MATS.map(m=>{ const S=statsFor(D.banks.filter(b=>b.mat===m.id)), q=D.banks.filter(b=>b.mat===m.id).reduce((s,b)=>s+b.q.length,0);
     return `<section><button class="mtile" type="button" data-h="m-${m.id}" data-l="${esc(m.name[0])}"><span class="ue">${esc(m.ue)}</span><div><b>${esc(m.name)}</b><i>${q?q+' QCM · ':''}${m.chaps.length} chapitre${m.chaps.length>1?'s':''}${q?'':' · bientôt'}</i><div class="prog"><span style="width:${q?(100*S.done/q).toFixed(0):0}%"></span></div></div></button>${statTable(S)}</section>`; }).join('')}</div>`;
   view.querySelectorAll('[data-h]').forEach(b=>b.addEventListener('click',()=>location.hash=b.dataset.h));
@@ -333,8 +341,8 @@ function matiere(mid){
 function chapitre(mid,cid){
   const M=MAT(mid), name=chapName(mid,cid), bs=D.banks.filter(b=>b.mat===mid&&b.chap===cid);
   view.innerHTML=crumb([['accueil','Matières'],['m-'+mid,M.name],[null,name]])+`<div class="phead c"><span class="bar"></span><div><small>${esc(M.name)}</small><h1>${esc(name)}</h1></div><span class="ct"><b>${bs.reduce((s,b)=>s+b.q.length,0)}</b>QCM</span></div>
-   <div class="grid">${bs.map(b=>{ const s=B(b.id), run=s.i>0&&s.i<s.order.length;
-     return `<section><button class="tile s" type="button" data-h="s-${b.id}"><div><small>Session</small><b>${esc(b.title)}</b><i>${b.q.length} QCM${run?' · en cours':''}${b.detail?' · correction détaillée':''}</i></div></button>${statTable(statsFor([b]))}
+   <div class="grid">${bs.map(b=>{ const s=B(b.id), run=inProgress(b.id);
+     return `<section><button class="tile s" type="button" data-h="s-${b.id}"><div><small>Session</small><b>${esc(b.title)}</b><i>${b.q.length} QCM${run?' · en cours (question '+(s.i+1)+'/'+s.order.length+')':''}${b.detail?' · correction détaillée':''}</i></div></button>${statTable(statsFor([b]))}
       <div class="pdfs">${b.pdf?`<button class="btn o sm" type="button" data-pdf="${b.pdf.s}">PDF sujet</button><button class="btn o sm" type="button" data-pdf="${b.pdf.c}">PDF correction</button>`:`<button class="btn o sm" type="button" data-gp="${b.id}|s">PDF sujet</button><button class="btn o sm" type="button" data-gp="${b.id}|c">PDF correction</button>`}${b.custom?`<a class="btn o sm" href="#edit-${b.id}">Modifier</a>`:''}</div></section>`; }).join('')}</div>`;
   view.querySelectorAll('[data-h]').forEach(b=>b.addEventListener('click',()=>location.hash=b.dataset.h));
   view.querySelectorAll('[data-pdf]').forEach(b=>b.addEventListener('click',()=>getPdf(b.dataset.pdf)));
@@ -349,12 +357,12 @@ function setup(bid){
   const fmt=x=>x%60===0?(x/60)+' min':x>60?Math.floor(x/60)+' min '+(x%60)+' s':x+' s';
   const notDone=[...bk.q.keys()].filter(k=>!s.done[k]), missed=[...bk.q.keys()].filter(k=>s.done[k]&&disc(bid,k));
   const pool=P.mode==='new'?notDone:P.mode==='ko'?missed:[...bk.q.keys()];
-  const run=s.i>0&&s.i<s.order.length;
+  const run=inProgress(bid);
   const sizes=[10,20,30,45].filter(x=>x<N);
   const seg=(key,opts)=>`<div class="seg" role="group">${opts.map(([v,l,dis])=>`<button type="button" data-k="${key}" data-v="${v}" aria-pressed="${String(P[key])===String(v)}" ${dis?'disabled':''}>${l}</button>`).join('')}</div>`;
   view.innerHTML=crumb([['accueil','Matières'],['m-'+bk.mat,M.name],['c-'+bk.mat+'-'+bk.chap,chapName(bk.mat,bk.chap)],[null,bk.title]])+
   `<div class="title"><h1>Session · ${esc(chapName(bk.mat,bk.chap))}</h1><p>${esc(bk.title)} · ${N} QCM</p></div><div class="setup">
-   ${run?`<div class="resume"><span>Session en cours : question ${s.i+1} sur ${s.order.length}${s.cfg&&s.cfg.chrono?' · chronomètre activé':''}</span><a class="btn v" href="#b-${bid}">Reprendre</a></div>`:''}
+   ${run?`<a class="mainbtn resbig" href="#b-${bid}">Reprendre ma session · question ${s.i+1} sur ${s.order.length}</a><p class="note" style="text-align:center;margin:-6px 0 18px">Ta session est enregistrée${s.cfg&&s.cfg.chrono?' (chronomètre activé)':''}. Commencer une nouvelle session plus bas la remplacera.</p>`:''}
    <div class="opt"><span>Nombre de QCM</span>${seg('n',[...sizes.map(x=>[x,String(x)]),['all','Tous ('+N+')']])}</div>
    <div class="opt"><span>Questions</span>${seg('mode',[['new','Pas encore faites ('+notDone.length+')',!notDone.length],['all','Toutes ('+N+')'],['ko','Mes questions ratées ('+missed.length+')',!missed.length]])}</div>
    <div class="opt"><span>Ordre</span>${seg('ord',[['rand','Aléatoire'],['seq','Dans l’ordre']])}</div>
@@ -383,7 +391,8 @@ function session(bid){
   cur=bid; const bk=BANKS[bid], s=B(bid), M=MAT(bk.mat);
   if(s.i>=s.order.length) return sessionEnd(bid);
   const k=s.order[s.i], q=bk.q[k], done=s.done[k], a=s.ans[k], chrono=s.cfg&&s.cfg.chrono&&!done;
-  const dur=q.refl?REFL_SEC:(s.cfg.sec||60);
+  const dur=q.refl?REFL_SEC:((s.cfg&&s.cfg.sec)||60);
+  if(s.cfg){ s.cfg.last=Date.now(); save(); }
   if(chrono){ if(!clock||clock.bid!==bid||clock.k!==k) clock={bid,k,dur,end:Date.now()+dur*1000}; } else stopClock();
   let h=`<div class="title"><h1>Session en ${esc(M.name)}</h1><p>Question ${s.i+1} sur ${s.order.length}</p>${chrono?`<p class="clockrow">${q.refl?'<span class="refl">Question de réflexion · 1 min 30</span>':''}<span class="clock" id="clk"><span class="tb"><i></i></span><b></b></span></p>`:''}</div>
    <div class="q"><div class="err"><button type="button" id="erb">Signaler un erratum</button></div>
