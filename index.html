@@ -284,7 +284,7 @@ function setSync(t){ document.getElementById('sync').textContent=t; }
 /* ---------- calculs ---------- */
 const truth=(b,k)=>BANKS[b].q[k].items.map((it,j)=>it.v?j:-1).filter(j=>j>=0);
 function disc(b,k){ const t=truth(b,k), a=B(b).ans[k]; let n=0; for(let j=0;j<5;j++) if(t.includes(j)!==a.includes(j)) n++; return n; }
-const pts = n => n===0?1:n===1?.5:n===2?.2:0;
+const pts = n => n===0?1:n===1?.7:n===2?.1:0;
 function statsFor(banks){
   let n=0, done=0, items=0, good=0, p=0;
   banks.forEach(b=>{ const s=B(b.id); n+=b.q.length; s.done.forEach((d,k)=>{ if(!d) return; done++; const dk=disc(b.id,k); items+=5; good+=5-dk; p+=pts(dk); }); });
