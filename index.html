@@ -574,7 +574,7 @@ function carnet(){
 }
 function ankiText(){ const clean=s=>String(s).replace(/[\t\r\n]+/g,' ');
   const rows=selIds().map(id=>{ const {b,q,it}=ITEM[id], Qq=BANKS[b].q[q];
-    const front=`<div style="text-align:center"><div style="color:#666;font-size:13px">${esc(bankLabel(b))} · Q${Qq.n}${Qq.page?' · fiche '+esc(Qq.page):''}${Qq.fig?' · voir le schéma':''}${Qq.ctx?'':'<br>'+esc(Qq.stem.split(',')[0])}</div>${Qq.ctx?`<div style="margin:8px auto;padding:6px 10px;background:#f4f0fa;border-radius:6px;font-size:16px">Contexte : ${esc(Qq.ctx)}</div>`:''}${esc(it.t)}<br><br>Vrai ou faux ?</div>`;
+    const front=`<div style="text-align:center"><div style="color:#666;font-size:13px">${esc(bankLabel(b))} · Q${Qq.n}${Qq.page?' · fiche '+esc(Qq.page):''}${Qq.fig?' · voir le schéma':''}${Qq.ctx?'':'<br>'+esc(Qq.stem.split(',')[0])}</div>${esc(it.t)}<br><br>Vrai ou faux ?</div>`;
     const back=`<div style="text-align:center"><span style="color:${isTrue(it)?'#1fa83a':'#e3131b'}">${labOf(it)}</span> ${corrBody(it)}${Qq.rappel?'<hr><i>Rappel :</i> '+esc(Qq.rappel):''}</div>`;
     return [front,back,'Minor2meD '+BANKS[b].mat+' '+BANKS[b].chap+' '+b,deckName(BANKS[b].mat)].map(clean).join('\t'); });
   return '#separator:tab\n#html:true\n#tags column:3\n#deck column:4\n'+rows.join('\n')+'\n'; }
@@ -692,7 +692,7 @@ CREATE INDEX ix_cards_nid on cards (nid); CREATE INDEX ix_cards_sched on cards (
     let n=0;
     for(const id of ids){
       const {b,q,it}=ITEM[id], Qq=BANKS[b].q[q];
-      const front=`<div class="ctx">${esc(bankLabel(b))} · question ${Qq.n}${Qq.page?' · fiche '+esc(Qq.page):''}${Qq.ctx?'':'<br>'+esc(Qq.stem.split(',')[0])}</div>${Qq.ctx?`<div class="cx">Contexte : ${esc(Qq.ctx)}</div>`:''}${Qq.fig?`<img src="${mediaName(Qq.fig)}">`:''}<p>${esc(it.t)}</p><p>Vrai ou faux ?</p>`;
+      const front=`<div class="ctx">${esc(bankLabel(b))} · question ${Qq.n}${Qq.page?' · fiche '+esc(Qq.page):''}${Qq.ctx?'':'<br>'+esc(Qq.stem.split(',')[0])}</div>${Qq.fig?`<img src="${mediaName(Qq.fig)}">`:''}<p>${esc(it.t)}</p><p>Vrai ou faux ?</p>`;
       const back=`<span class="${isTrue(it)?'v':'f'}">${labOf(it)}</span> ${corrBody(it)}${Qq.rappel?`<div class="rap"><i>Rappel de cours (fiche ${esc(Qq.page)}) :</i> ${esc(Qq.rappel)}</div>`:''}`;
       const sf=stripHtml(front), cs=parseInt((await sha1hex(sf)).slice(0,8),16);
       const nid=1732460100000+n*10, cid=nid+1;
