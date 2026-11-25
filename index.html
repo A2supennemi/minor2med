@@ -320,7 +320,7 @@ function route(){
   stopClock(); flushQ();
   const h=(location.hash||'#accueil').slice(1);
   if(h==='carnet') carnet();
-  if(h==='stats') statsPage();
+  else if(h==='stats') statsPage();
   else if(h==='revision') review();
   else if(h.startsWith('m-') && MATS.find(m=>m.id===h.slice(2))) matiere(h.slice(2));
   else if(h.startsWith('c-') && chapFromHash(h)) chapitre(...chapFromHash(h));
