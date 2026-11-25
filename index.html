@@ -110,6 +110,12 @@ main{padding:22px max(2vw,12px) 50px}
 .refl{display:inline-block;font-size:12px;font-weight:700;color:var(--ses);border:1px solid var(--ses);border-radius:10px;padding:1px 9px;margin-right:10px;vertical-align:middle}
 .secin{display:inline-flex;align-items:center;gap:6px;font-size:14px;border:1px solid var(--line);border-radius:4px;padding:0 10px;min-height:38px;box-sizing:border-box}
 .secin input{width:62px;font:14px Arial,sans-serif;padding:4px 6px;border:1px solid var(--line);border-radius:3px;background:var(--bg);color:var(--ink)}
+.hday{margin:30px 0 0;padding-top:18px;border-top:1px solid var(--line)}.hday h2{font-size:16px;margin:0 0 10px}
+.hst{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.hst div{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.hst small{color:var(--mute);font-size:12px;text-transform:uppercase;letter-spacing:.04em}.hst b{font-size:24px}
+.hpio{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 30px}
+@media (max-width:640px){.hst{grid-template-columns:1fr}}
+.em{font-variant-numeric:tabular-nums;color:var(--ink)}
 .today{font-size:16px;margin:0 0 14px}.streak{display:inline-block;margin-left:8px;font-size:13px;font-weight:700;color:var(--ses);border:1px solid var(--ses);border-radius:10px;padding:1px 9px}
 .scs{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:14px 0 8px}
 .sc{background:light-dark(#fff,#151517);border:1px solid var(--line);border-radius:4px;padding:12px 14px;display:flex;flex-direction:column;gap:3px}
@@ -223,7 +229,7 @@ footer .pio{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 </div></header>
 <div class="modal" id="lm" hidden><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="lmt"><button class="mx" type="button" id="lmx" aria-label="Fermer">×</button><div id="lmb"></div></div></div>
 <main><div class="wrap" id="view"></div>
-<footer>Minor2meD · Site d’entraînement indépendant. QCM rédigés uniquement à partir des fiches de cours ; chaque erreur rejoint ton carnet, révisé en répétition espacée comme dans Anki. <span id="sync">Progression enregistrée sur cet appareil.</span><span class="pio"><button class="btn o sm" type="button" id="pexp">Exporter ma progression</button><button class="btn o sm" type="button" id="pimp">Importer une progression</button><input type="file" id="pfile" accept=".json,application/json" hidden></span></footer>
+<footer hidden><span id="sync"></span><input type="file" id="pfile" accept=".json,application/json" hidden></footer>
 </main>
 <div class="toast" id="toast" role="status"></div>
 <script src="lib/jspdf.umd.min.js"></script>
@@ -311,7 +317,7 @@ const REFL_SEC=90;
 const TIME={histologie:60, embryologie:60, 'sante-publique':45};
 function counts(){ const n=cardIds().length, d=dueIds().length; document.getElementById('pc').textContent=n; document.getElementById('pd').textContent=d; return {n,d}; }
 function route(){
-  stopClock();
+  stopClock(); flushQ();
   const h=(location.hash||'#accueil').slice(1);
   if(h==='carnet') carnet();
   if(h==='stats') statsPage();
@@ -340,6 +346,10 @@ function home(){
   view.innerHTML=resumeCards()+`<div class="banner">Ces QCM ne couvrent pas forcément toutes les notions et ne remplacent ni les examens blancs ni les annales.</div>
    <div class="grid2">${MATS.map(m=>{ const S=statsFor(D.banks.filter(b=>b.mat===m.id)), q=D.banks.filter(b=>b.mat===m.id).reduce((s,b)=>s+b.q.length,0);
     return `<section><button class="mtile" type="button" data-h="m-${m.id}" data-l="${esc(m.name[0])}"><span class="ue">${esc(m.ue)}</span><div><b>${esc(m.name)}</b><i>${q?q+' QCM · ':''}${m.chaps.length} chapitre${m.chaps.length>1?'s':''}${q?'':' · bientôt'}</i><div class="prog"><span style="width:${q?(100*S.done/q).toFixed(0):0}%"></span></div></div></button>${statTable(S)}</section>`; }).join('')}</div>`;
+  const A=aggr([dayKey()]);
+  view.insertAdjacentHTML('beforeend',`<section class="hday"><h2>Aujourd’hui</h2><div class="hst">
+    <div><small>Temps d’étude</small><b>${fmtDur(A.t+A.rt)}</b></div><div><small>QCM réalisés</small><b>${A.q}</b></div><div><small>Temps moyen par QCM</small><b>${A.q?fmtDur(A.t/A.q):'—'}</b></div></div>
+    <div class="hpio"><a class="btn o" href="#stats">Toutes mes statistiques</a><button class="btn o" type="button" id="pexp">Exporter ma progression</button><button class="btn o" type="button" id="pimp">Importer une progression</button></div></section>`);
   view.querySelectorAll('[data-h]').forEach(b=>b.addEventListener('click',()=>location.hash=b.dataset.h));
 }
 function matiere(mid){
@@ -405,7 +415,7 @@ function session(bid){
   const k=s.order[s.i], q=bk.q[k], done=s.done[k], a=s.ans[k], chrono=s.cfg&&s.cfg.chrono&&!done;
   const dur=q.refl?REFL_SEC:((s.cfg&&s.cfg.sec)||60);
   if(s.cfg){ s.cfg.last=Date.now(); save(); }
-  if(!done) startQ(bid+':'+k);
+  if(!done) startQ(bid+':'+k,bk.mat,bid);
   if(chrono){ if(!clock||clock.bid!==bid||clock.k!==k) clock={bid,k,dur,end:Date.now()+dur*1000}; } else stopClock();
   let h=`<div class="title"><h1>Session en ${esc(M.name)}</h1><p>Question ${s.i+1} sur ${s.order.length}</p>${chrono?`<p class="clockrow">${q.refl?'<span class="refl">Question de réflexion · 1 min 30</span>':''}<span class="clock" id="clk"><span class="tb"><i></i></span><b></b></span></p>`:''}</div>
    <div class="q"><div class="err"><button type="button" id="erb">Signaler un erratum</button></div>
@@ -427,7 +437,7 @@ function session(bid){
   view.innerHTML=h;
   view.querySelectorAll('.it>button[data-j]').forEach(b=>b.addEventListener('click',()=>toggle(+b.dataset.j)));
   document.getElementById('main').addEventListener('click',()=>done?nextQ():validate());
-  const p=document.getElementById('prev'); if(p) p.addEventListener('click',()=>{s.i--;save();session(bid);window.scrollTo(0,0);});
+  const p=document.getElementById('prev'); if(p) p.addEventListener('click',()=>{flushQ();s.i--;save();session(bid);window.scrollTo(0,0);});
   document.getElementById('erb').addEventListener('click',()=>{errOpen=!errOpen;session(bid);});
   const es=document.getElementById('ers'); if(es){ document.getElementById('ert').focus();
     es.addEventListener('click',()=>sendErr(bid,q.n,document.getElementById('ert').value));
@@ -441,25 +451,31 @@ async function sendErr(bid,n,txt){ txt=String(txt||'').trim().slice(0,2000); if(
 function toggle(j){ const s=B(cur), k=s.order[s.i]; if(s.done[k]) return; const a=s.ans[k], x=a.indexOf(j); x<0?a.push(j):a.splice(x,1); save(); session(cur); }
 /* ---------- temps d'étude ---------- */
 const QCAP=5*60000, RCAP=2*60000;
-let qT={key:null,t0:0,hid:0,hs:0};
+let qT={key:null,t0:0,hid:0,hs:0,phase:'ans',mat:null,bid:null};
 document.addEventListener('visibilitychange',()=>{ if(document.hidden) qT.hs=Date.now(); else if(qT.hs){ qT.hid+=Date.now()-qT.hs; qT.hs=0; } });
-function startQ(key){ if(qT.key!==key) qT={key,t0:Date.now(),hid:0,hs:0}; }
-function spent(cap){ const d=Date.now()-qT.t0-qT.hid-(qT.hs?Date.now()-qT.hs:0); qT.key=null; return Math.max(0,Math.min(cap,d)); }
+function startQ(key,mat,bid){ if(qT.key!==key){ flushQ(); qT={key,t0:Date.now(),hid:0,hs:0,phase:'ans',mat,bid}; } }
+function elapsed(cap){ const d=Date.now()-qT.t0-qT.hid-(qT.hs?Date.now()-qT.hs:0); return Math.max(0,Math.min(cap,d)); }
+function spent(cap){ const v=elapsed(cap); qT.key=null; return v; }
+function flushQ(){ if(qT.key&&qT.phase==='corr'){ const ms=elapsed(QCAP); st.stats=st.stats||{}; const D0=st.stats[dayKey()]=st.stats[dayKey()]||{}; const m=(D0.m=D0.m||{})[qT.mat]=(D0.m[qT.mat]||{q:0,it:0,t:0,err:0}); m.t+=ms;
+  const s=qT.bid&&st.banks[qT.bid]; if(s&&s.cfg) s.cfg.tm=(s.cfg.tm||0)+ms; save(); } qT.key=null; }
+window.addEventListener('pagehide',flushQ);
 const dayKey=(d=new Date())=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-function logStudy(mat,kind,items,ms){ st.stats=st.stats||{}; const D0=st.stats[dayKey()]=st.stats[dayKey()]||{};
-  if(kind==='q'){ const m=(D0.m=D0.m||{})[mat]=(D0.m[mat]||{q:0,it:0,t:0}); m.q++; m.it+=items; m.t+=ms; }
+function logStudy(mat,kind,items,ms,err){ st.stats=st.stats||{}; const D0=st.stats[dayKey()]=st.stats[dayKey()]||{};
+  if(kind==='q'){ const m=(D0.m=D0.m||{})[mat]=(D0.m[mat]||{q:0,it:0,t:0,err:0}); m.q++; m.it+=items; m.t+=ms; m.err=(m.err||0)+(err||0); }
   else { const r=D0.r=D0.r||{n:0,t:0}; r.n++; r.t+=ms; } }
 function validate(){ const s=B(cur), k=s.order[s.i]; if(s.done[k]) return; s.done[k]=true; stopClock(); clock=null;
-  const ms=spent(QCAP), nIt=BANKS[cur].q[k].items.length; logStudy(BANKS[cur].mat,'q',nIt,ms); if(s.cfg){ s.cfg.tm=(s.cfg.tm||0)+ms; s.cfg.nq=(s.cfg.nq||0)+1; }
+  const ms=elapsed(QCAP), nIt=BANKS[cur].q[k].items.length, nErr=BANKS[cur].q[k].items.filter((it,j)=>s.ans[k].includes(j)!==it.v).length;
+  logStudy(BANKS[cur].mat,'q',nIt,ms,nErr); if(s.cfg){ s.cfg.tm=(s.cfg.tm||0)+ms; s.cfg.nq=(s.cfg.nq||0)+1; s.cfg.err=(s.cfg.err||0)+nErr; }
+  if(qT.key===cur+':'+k){ qT.phase='corr'; qT.t0=Date.now(); qT.hid=0; qT.hs=0; }
   const w=BANKS[cur].q[k].items.filter((it,j)=>s.ans[k].includes(j)!==it.v); w.forEach(it=>addCard(cur+':'+it.id));
   save(); counts(); session(cur); }
-function nextQ(){ B(cur).i++; errOpen=false; clock=null; save(); session(cur); window.scrollTo(0,0); }
+function nextQ(){ flushQ(); B(cur).i++; errOpen=false; clock=null; save(); session(cur); window.scrollTo(0,0); }
 function sessionEnd(bid){
   stopClock();
   const bk=BANKS[bid], s=B(bid), M=MAT(bk.mat), ks=s.order, idx=ks.filter(k=>s.done[k]), missed=idx.filter(k=>disc(bid,k)), S=statsK(bid,ks);
   view.innerHTML=crumb([['accueil','Matières'],['m-'+bk.mat,M.name],['c-'+bk.mat+'-'+bk.chap,chapName(bk.mat,bk.chap)],[null,bk.title]])+
    `<div class="title"><h1>Session en ${esc(M.name)} · ${esc(chapName(bk.mat,bk.chap))}</h1><p>Bilan de la session</p></div>
-   <div class="box2" style="max-width:900px;margin:auto"><table class="stats" style="margin-top:0"><tr><td>Réussite</td><td>${S.reuss}</td></tr><tr><td>Note</td><td>${S.note}</td></tr><tr><td>Questions de la session</td><td>${S.done} / ${S.n}</td></tr><tr><td>Questions avec erreur</td><td>${missed.length}</td></tr>${s.cfg&&s.cfg.nq?`<tr><td>Temps passé</td><td>${fmtDur(s.cfg.tm)}</td></tr><tr><td>Temps moyen par QCM</td><td>${fmtDur(s.cfg.tm/s.cfg.nq)}</td></tr>`:''}</table>
+   <div class="box2" style="max-width:900px;margin:auto"><table class="stats" style="margin-top:0"><tr><td>Réussite</td><td>${S.reuss}</td></tr><tr><td>Note</td><td>${S.note}</td></tr><tr><td>Questions de la session</td><td>${S.done} / ${S.n}</td></tr><tr><td>Questions avec erreur</td><td>${missed.length}</td></tr>${s.cfg&&s.cfg.nq?`<tr><td>Temps passé</td><td>${fmtDur(s.cfg.tm)}</td></tr><tr><td>Temps moyen par QCM</td><td>${fmtDur(s.cfg.tm/s.cfg.nq)}</td></tr><tr><td>Erreurs moyennes par QCM</td><td>${((s.cfg.err||0)/s.cfg.nq).toFixed(3).replace('.',',')}</td></tr>`:''}</table>
    ${missed.length?`<ul class="list">${missed.map(k=>`<li><span class="t">Question ${bk.q[k].n} · ${esc(bk.q[k].stem.split(',')[0])}</span><button class="btn o sm" type="button" data-k="${k}">Revoir</button><span class="m">${disc(bid,k)} discordance${disc(bid,k)>1?'s':''}</span></li>`).join('')}</ul>`:''}
    ${notionsHtml(missed.map(k=>({b:bid,k,w:wrongJ(bid,k)})))}
    <div class="second sm" style="margin-top:18px">${missed.length?'<button class="btn" type="button" id="epdf">Télécharger mes erreurs (PDF)</button><button class="btn o" type="button" id="redo">Refaire les questions ratées</button>':''}<a class="btn v" href="#s-${bid}">Nouvelle session</a><a class="btn o" href="#revision">Réviser le carnet</a></div></div>`;
@@ -495,9 +511,10 @@ function review(){
 function rate(g){ logStudy(BANKS[ITEM[rev.id].b].mat,'r',1,spent(RCAP)); grade(rev.id,g); rev={id:null,shown:false}; counts(); review(); window.scrollTo(0,0); }
 
 /* ---------- carnet ---------- */
+const fmtErr=a=>a.q?(a.err/a.q).toFixed(3).replace('.',','):'—';
 function fmtDur(ms){ const s=Math.round((ms||0)/1000); if(s<60) return s+' s'; const m=Math.floor(s/60), r=s%60; if(m<60) return m+' min'+(r?' '+String(r).padStart(2,'0')+' s':''); const h=Math.floor(m/60); return h+' h '+String(m%60).padStart(2,'0')+' min'; }
-function aggr(days,mfil){ const a={q:0,it:0,t:0,r:0,rt:0}; days.forEach(k=>{ const D0=(st.stats||{})[k]; if(!D0) return;
-  Object.entries(D0.m||{}).forEach(([m,v])=>{ if(mfil&&m!==mfil) return; a.q+=v.q; a.it+=v.it; a.t+=v.t; }); if(!mfil&&D0.r){ a.r+=D0.r.n; a.rt+=D0.r.t; } }); return a; }
+function aggr(days,mfil){ const a={q:0,it:0,t:0,r:0,rt:0,err:0}; days.forEach(k=>{ const D0=(st.stats||{})[k]; if(!D0) return;
+  Object.entries(D0.m||{}).forEach(([m,v])=>{ if(mfil&&m!==mfil) return; a.q+=v.q; a.it+=v.it; a.t+=v.t; a.err+=(v.err||0); }); if(!mfil&&D0.r){ a.r+=D0.r.n; a.rt+=D0.r.t; } }); return a; }
 const lastDays=n=>Array.from({length:n},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()-(n-1-i)); return dayKey(d); });
 let smat='';
 function statsPage(){ const all=Object.keys(st.stats||{}).sort(), today=dayKey();
@@ -511,15 +528,15 @@ function statsPage(){ const all=Object.keys(st.stats||{}).sort(), today=dayKey()
   const grid=Array.from({length:top/step+1},(_,i)=>{ const v=i*step, y=H-B-v/top*(H-B-8); return `<line x1="${L}" x2="${W}" y1="${y}" y2="${y}" class="gl"/><text x="${L-6}" y="${y+4}" text-anchor="end" class="ax">${v}</text>`; }).join('');
   const xl=[0,7,14,21,29].map(i=>{ const d=new Date(days[i]+'T12:00'); return `<text x="${L+i*bw+bw/2}" y="${H-6}" text-anchor="middle" class="ax">${i===29?'auj.':d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</text>`; }).join('');
   const mats=MATS.filter(m=>all.some(k=>((st.stats[k]||{}).m||{})[m.id]));
-  const card=([l,a])=>`<div class="sc"><small>${l}</small><b>${fmtDur(a.t+a.rt)}</b><span>${a.q} QCM · ${a.it} items</span><span>Moyenne : ${a.q?fmtDur(a.t/a.q):'—'} / QCM</span>${smat?'':`<span>${a.r} carte${a.r>1?'s':''} révisée${a.r>1?'s':''}</span>`}</div>`;
+  const card=([l,a])=>`<div class="sc"><small>${l}</small><b>${fmtDur(a.t+a.rt)}</b><span>${a.q} QCM · ${a.it} items</span><span>Moyenne : ${a.q?fmtDur(a.t/a.q):'—'} / QCM</span><span>Erreurs moyennes : <b class="em">${fmtErr(a)}</b> / QCM</span>${smat?'':`<span>${a.r} carte${a.r>1?'s':''} révisée${a.r>1?'s':''}</span>`}</div>`;
   view.innerHTML=`<div class="phead"><span class="bar"></span><div><small>Suivi</small><h1>Statistiques</h1></div></div>
-   <div class="box2"><p class="today">${A0.q||A0.r?`Aujourd’hui, tu as fait <b>${A0.q} QCM</b> (${A0.it} items)${A0.r?` et révisé <b>${A0.r} carte${A0.r>1?'s':''}</b>`:''} en <b>${fmtDur(A0.t+A0.rt)}</b>${A0.q?` · ${fmtDur(A0.t/A0.q)} par QCM en moyenne`:''}.`:'Tu n’as encore rien fait aujourd’hui.'}${streak>1?` <span class="streak">${streak} jours d’affilée</span>`:''}</p>
+   <div class="box2"><p class="today">${A0.q||A0.r?`Aujourd’hui, tu as fait <b>${A0.q} QCM</b> (${A0.it} items)${A0.r?` et révisé <b>${A0.r} carte${A0.r>1?'s':''}</b>`:''} en <b>${fmtDur(A0.t+A0.rt)}</b>${A0.q?` · ${fmtDur(A0.t/A0.q)} par QCM en moyenne · ${fmtErr(A0)} erreur${A0.err/A0.q>=2?'s':''} par QCM en moyenne`:''}.`:'Tu n’as encore rien fait aujourd’hui.'}${streak>1?` <span class="streak">${streak} jours d’affilée</span>`:''}</p>
    <div class="tools"><label for="sm">Matière</label><select id="sm"><option value="">Toutes</option>${mats.map(m=>`<option value="${m.id}" ${m.id===smat?'selected':''}>${esc(m.name)}</option>`).join('')}</select></div>
    <div class="scs">${per.map(card).join('')}</div>
    <h2 class="sh">Temps d’étude par jour · 30 derniers jours <small>(minutes)</small></h2>
    <div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Minutes d’étude par jour sur les 30 derniers jours">${grid}${bars}${xl}</svg><div class="tip" id="tip" hidden></div></div>
-   ${smat?'':`<h2 class="sh">Par matière · depuis le début</h2><table class="stats mt"><tr><th>Matière</th><th>QCM</th><th>Items</th><th>Temps</th><th>Moyenne / QCM</th></tr>${mats.map(m=>{ const a=aggr(all,m.id); return `<tr><td>${esc(m.name)}</td><td>${a.q}</td><td>${a.it}</td><td>${fmtDur(a.t)}</td><td>${a.q?fmtDur(a.t/a.q):'—'}</td></tr>`; }).join('')||'<tr><td colspan="5">Aucune donnée pour l’instant.</td></tr>'}</table>`}
-   <p class="note">Le temps est compté de l’affichage d’une question jusqu’à sa validation, sans les moments où l’onglet est en arrière-plan (au plus 5 min par QCM et 2 min par carte révisée).</p></div>`;
+   ${smat?'':`<h2 class="sh">Par matière · depuis le début</h2><table class="stats mt"><tr><th>Matière</th><th>QCM</th><th>Items</th><th>Temps</th><th>Moyenne / QCM</th><th>Erreurs moyennes / QCM</th></tr>${mats.map(m=>{ const a=aggr(all,m.id); return `<tr><td>${esc(m.name)}</td><td>${a.q}</td><td>${a.it}</td><td>${fmtDur(a.t)}</td><td>${a.q?fmtDur(a.t/a.q):'—'}</td><td>${fmtErr(a)}</td></tr>`; }).join('')||'<tr><td colspan="6">Aucune donnée pour l’instant.</td></tr>'}</table>`}
+   <p class="note">Le temps d’un QCM est compté de l’affichage de la question jusqu’à la fin de la lecture de sa correction (passage à la question suivante ou sortie de la session), sans les moments où l’onglet est en arrière-plan : au plus 5 min pour répondre, 5 min pour la correction et 2 min par carte révisée. Les erreurs moyennes comptent les items mal répondus (discordances) par QCM, au millième près.</p></div>`;
   document.getElementById('sm').addEventListener('change',e=>{ smat=e.target.value; statsPage(); });
   const tip=document.getElementById('tip'), ch=view.querySelector('.chart');
   view.querySelectorAll('.bar').forEach(g=>{ const show=()=>{ tip.textContent=g.dataset.tip; tip.hidden=false; const r=g.getBoundingClientRect(), c=ch.getBoundingClientRect(); tip.style.left=Math.min(c.width-tip.offsetWidth,Math.max(0,r.left-c.left+r.width/2-tip.offsetWidth/2))+'px'; tip.style.top='-6px'; };
@@ -951,8 +968,7 @@ function importProgress(file){
     toast(`Progression importée : ${nb} banque${nb>1?'s':''}, ${nc} carte${nc>1?'s':''}`);
   }catch(e){ toast('Fichier non reconnu : choisis un fichier exporté depuis Minor2meD'); } };
   r.readAsText(file); }
-document.getElementById('pexp').addEventListener('click',exportProgress);
-document.getElementById('pimp').addEventListener('click',()=>document.getElementById('pfile').click());
+document.addEventListener('click',e=>{ if(e.target.closest('#pexp')) exportProgress(); else if(e.target.closest('#pimp')) document.getElementById('pfile').click(); });
 document.getElementById('pfile').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) importProgress(f); e.target.value=''; });
 
 /* ---------- comptes (Firebase) ---------- */
