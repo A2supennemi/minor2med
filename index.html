@@ -574,8 +574,8 @@ function carnet(){
 }
 function ankiText(){ const clean=s=>String(s).replace(/[\t\r\n]+/g,' ');
   const rows=selIds().map(id=>{ const {b,q,it}=ITEM[id], Qq=BANKS[b].q[q];
-    const front=`<div style="color:#666;font-size:13px">${esc(bankLabel(b))} · Q${Qq.n}${Qq.page?' · fiche '+esc(Qq.page):''}${Qq.fig?' · voir le schéma':''}${Qq.ctx?'':'<br>'+esc(Qq.stem.split(',')[0])}</div>${Qq.ctx?`<div style="margin:8px 0;padding:6px 10px;background:#f4f0fa;border-left:4px solid #6b3fa0;font-size:15px"><b>Contexte :</b> ${esc(Qq.ctx)}</div>`:''}<b>${esc(it.t)}</b><br><br>Vrai ou faux ?`;
-    const back=`<b style="color:${isTrue(it)?'#1fa83a':'#e3131b'}">${labOf(it)}</b> ${corrBody(it)}${Qq.rappel?'<hr><i>Rappel :</i> '+esc(Qq.rappel):''}`;
+    const front=`<div style="text-align:center"><div style="color:#666;font-size:13px">${esc(bankLabel(b))} · Q${Qq.n}${Qq.page?' · fiche '+esc(Qq.page):''}${Qq.fig?' · voir le schéma':''}${Qq.ctx?'':'<br>'+esc(Qq.stem.split(',')[0])}</div>${Qq.ctx?`<div style="margin:8px auto;padding:6px 10px;background:#f4f0fa;border-radius:6px;font-size:16px">Contexte : ${esc(Qq.ctx)}</div>`:''}${esc(it.t)}<br><br>Vrai ou faux ?</div>`;
+    const back=`<div style="text-align:center"><span style="color:${isTrue(it)?'#1fa83a':'#e3131b'}">${labOf(it)}</span> ${corrBody(it)}${Qq.rappel?'<hr><i>Rappel :</i> '+esc(Qq.rappel):''}</div>`;
     return [front,back,'Minor2meD '+BANKS[b].mat+' '+BANKS[b].chap+' '+b,deckName(BANKS[b].mat)].map(clean).join('\t'); });
   return '#separator:tab\n#html:true\n#tags column:3\n#deck column:4\n'+rows.join('\n')+'\n'; }
 async function exportAnki(){ const data=ankiText(), fn='Minor2meD_carnet_erreurs'+(mfilt==='tous'?'':'_'+matSlug(mfilt))+'_anki.txt';
@@ -676,12 +676,12 @@ CREATE TABLE revlog (id integer primary key, cid integer not null, usn integer n
 CREATE TABLE graves (usn integer not null, oid integer not null, type integer not null);
 CREATE INDEX ix_notes_usn on notes (usn); CREATE INDEX ix_cards_usn on cards (usn); CREATE INDEX ix_revlog_usn on revlog (usn);
 CREATE INDEX ix_cards_nid on cards (nid); CREATE INDEX ix_cards_sched on cards (did, queue, due); CREATE INDEX ix_revlog_cid on revlog (cid); CREATE INDEX ix_notes_csum on notes (csum);`);
-    const now=Math.floor(Date.now()/1000), MID=1732460000001, DID=1732460000002;
+    const now=Math.floor(Date.now()/1000), MID=1732460000021, DID=1732460000002;
     const didOf=m=>1732460001000+(parseInt(m.split('').reduce((h,c)=>(h*31+c.charCodeAt(0))>>>0,7).toString().slice(-6),10));
-    const model={id:MID,name:'Minor2meD',type:0,mod:now,usn:-1,sortf:0,did:DID,
+    const model={id:MID,name:'Basique (Minor2meD)',type:0,mod:now,usn:-1,sortf:0,did:DID,
       tmpls:[{name:'Carte',ord:0,qfmt:'{{Recto}}',afmt:'{{FrontSide}}<hr id=answer>{{Verso}}',did:null,bqfmt:'',bafmt:''}],
       flds:[{name:'Recto',ord:0,sticky:false,rtl:false,font:'Arial',size:20,media:[]},{name:'Verso',ord:1,sticky:false,rtl:false,font:'Arial',size:20,media:[]}],
-      css:'.card{font-family:Arial,sans-serif;font-size:19px;text-align:left;color:#111;background:#fff;line-height:1.45}.ctx{color:#666;font-size:14px}.v{color:#1fa83a;font-weight:bold}.f{color:#e3131b;font-weight:bold}img{max-width:100%}.rap{margin-top:10px;font-size:15px;color:#333}.cx{margin:10px 0 4px;padding:8px 12px;background:#f4f0fa;border-left:4px solid #6b3fa0;font-size:16px;color:#222}.nightMode .cx{background:#2a2433;color:#eee}',
+      css:'.card{font-family:Arial,sans-serif;font-size:20px;text-align:center;color:black;background-color:white;line-height:1.45;font-weight:normal}.card *{font-weight:normal!important}.ctx{color:#666;font-size:14px}.v{color:#1fa83a}.f{color:#e3131b}img{max-width:100%;display:block;margin:10px auto}.rap{margin-top:10px;font-size:16px;color:#333}.cx{margin:10px auto 4px;max-width:720px;padding:8px 12px;background:#f4f0fa;border-radius:6px;font-size:17px;color:#222}.nightMode .card,.nightMode.card{color:white;background-color:#2f2f31}.nightMode .cx{background:#2a2433;color:#eee}.nightMode .rap{color:#ccc}',
       latexPre:'\\documentclass[12pt]{article}\\special{papersize=3in,5in}\\usepackage[utf8]{inputenc}\\usepackage{amssymb,amsmath}\\pagestyle{empty}\\setlength{\\parindent}{0in}\\begin{document}',latexPost:'\\end{document}',tags:[],vers:[],req:[[0,'any',[0]]]};
     const deck=(id,name)=>({id,name,mod:now,usn:-1,lrnToday:[0,0],revToday:[0,0],newToday:[0,0],timeToday:[0,0],collapsed:false,desc:'',dyn:0,conf:1,extendNew:10,extendRev:50});
     const dconf={1:{id:1,name:'Default',new:{delays:[1,10],ints:[1,4,7],initialFactor:2500,separate:true,order:1,perDay:20,bury:false},lapse:{delays:[10],mult:0,minInt:1,leechFails:8,leechAction:0},rev:{perDay:200,ease4:1.3,fuzz:0.05,minSpace:1,ivlFct:1,maxIvl:36500,bury:false,hardFactor:1.2},maxTaken:60,timer:0,autoplay:true,replayq:true,mod:0,usn:0,dyn:false}};
@@ -692,7 +692,7 @@ CREATE INDEX ix_cards_nid on cards (nid); CREATE INDEX ix_cards_sched on cards (
     let n=0;
     for(const id of ids){
       const {b,q,it}=ITEM[id], Qq=BANKS[b].q[q];
-      const front=`<div class="ctx">${esc(bankLabel(b))} · question ${Qq.n}${Qq.page?' · fiche '+esc(Qq.page):''}${Qq.ctx?'':'<br>'+esc(Qq.stem.split(',')[0])}</div>${Qq.ctx?`<div class="cx"><b>Contexte :</b> ${esc(Qq.ctx)}</div>`:''}${Qq.fig?`<img src="${mediaName(Qq.fig)}">`:''}<p><b>${esc(it.t)}</b></p><p>Vrai ou faux ?</p>`;
+      const front=`<div class="ctx">${esc(bankLabel(b))} · question ${Qq.n}${Qq.page?' · fiche '+esc(Qq.page):''}${Qq.ctx?'':'<br>'+esc(Qq.stem.split(',')[0])}</div>${Qq.ctx?`<div class="cx">Contexte : ${esc(Qq.ctx)}</div>`:''}${Qq.fig?`<img src="${mediaName(Qq.fig)}">`:''}<p>${esc(it.t)}</p><p>Vrai ou faux ?</p>`;
       const back=`<span class="${isTrue(it)?'v':'f'}">${labOf(it)}</span> ${corrBody(it)}${Qq.rappel?`<div class="rap"><i>Rappel de cours (fiche ${esc(Qq.page)}) :</i> ${esc(Qq.rappel)}</div>`:''}`;
       const sf=stripHtml(front), cs=parseInt((await sha1hex(sf)).slice(0,8),16);
       const nid=1732460100000+n*10, cid=nid+1;
