@@ -110,6 +110,16 @@ main{padding:22px max(2vw,12px) 50px}
 .refl{display:inline-block;font-size:12px;font-weight:700;color:var(--ses);border:1px solid var(--ses);border-radius:10px;padding:1px 9px;margin-right:10px;vertical-align:middle}
 .secin{display:inline-flex;align-items:center;gap:6px;font-size:14px;border:1px solid var(--line);border-radius:4px;padding:0 10px;min-height:38px;box-sizing:border-box}
 .secin input{width:62px;font:14px Arial,sans-serif;padding:4px 6px;border:1px solid var(--line);border-radius:3px;background:var(--bg);color:var(--ink)}
+.today{font-size:16px;margin:0 0 14px}.streak{display:inline-block;margin-left:8px;font-size:13px;font-weight:700;color:var(--ses);border:1px solid var(--ses);border-radius:10px;padding:1px 9px}
+.scs{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:14px 0 8px}
+.sc{background:light-dark(#fff,#151517);border:1px solid var(--line);border-radius:4px;padding:12px 14px;display:flex;flex-direction:column;gap:3px}
+.sc small{color:var(--mute);font-size:12px;text-transform:uppercase;letter-spacing:.04em}.sc b{font-size:24px;margin:2px 0 4px}.sc span{font-size:13px;color:var(--mute)}
+.sh{font-size:15px;margin:22px 0 8px}.sh small{font-weight:400;color:var(--mute)}
+.chart{position:relative;background:light-dark(#fff,#151517);border:1px solid var(--line);border-radius:4px;padding:10px 8px 4px}.chart svg{display:block;width:100%;height:auto}
+.chart .bf{fill:var(--ses)}.chart .bar:hover .bf,.chart .bar:focus .bf{fill:var(--sesh)}.chart .bar{outline:none;cursor:default}
+.chart .gl{stroke:light-dark(#e6e6e6,#333);stroke-width:1}.chart .ax{font:11px Arial,sans-serif;fill:var(--mute)}
+.chart .tip{position:absolute;pointer-events:none;background:var(--dark);color:#fff;font-size:12px;padding:5px 9px;border-radius:3px;white-space:nowrap;transform:translateY(-100%)}
+table.mt th{text-align:left;font-size:13px;padding:6px 8px;border-bottom:1px solid var(--line)}
 .resumes{max-width:1200px;margin:0 auto 18px}.resumes h2{font-size:16px;margin:0 0 8px}.resumes .resume{margin-bottom:8px}
 
 .resume{background:var(--bg);border:1px solid var(--line);border-left:4px solid var(--ses);padding:10px 14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px}
@@ -207,6 +217,7 @@ footer .pio{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
  <a class="hb r" href="#accueil" id="hm"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h4v4H3zM9 6h12v2H9zM3 10h4v4H3zM9 11h12v2H9zM3 15h4v4H3zM9 16h12v2H9z"/></svg><span class="l">Matières</span></a>
  <a class="hb g" href="#ajouter"><svg viewBox="0 0 24 24" aria-hidden="true" style="width:15px"><path d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7z"/></svg><span class="l">Ajouter des QCM</span></a>
  <a class="hb g" href="#carnet"><span class="l">Carnet d’erreurs</span><svg viewBox="0 0 24 24" aria-hidden="true" style="width:16px"><path d="M5 3h12l2 2v16H5zM8 8h8v2H8zm0 4h8v2H8z"/></svg><span class="n" id="pc">0</span></a>
+ <a class="hb g" href="#stats"><span class="l">Statistiques</span><svg viewBox="0 0 24 24" aria-hidden="true" style="width:16px"><path d="M4 20V10h3v10zm6.5 0V4h3v16zM17 20v-7h3v7z"/></svg></a>
  <a class="hb g" href="#revision"><span class="l">Réviser</span><svg viewBox="0 0 24 24" aria-hidden="true" style="width:16px"><path d="M12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-1.8-4.3L14 10h6V4l-2.4 2.4A8 8 0 0 0 12 4z"/></svg><span class="n" id="pd">0</span></a>
  <button class="hb b" type="button" id="acct" hidden><svg viewBox="0 0 24 24" aria-hidden="true" style="width:16px"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2c-4.4 0-8 2.2-8 5v2h16v-2c0-2.8-3.6-5-8-5z"/></svg><span class="l" id="acctl">Se connecter</span></button>
 </div></header>
@@ -303,6 +314,7 @@ function route(){
   stopClock();
   const h=(location.hash||'#accueil').slice(1);
   if(h==='carnet') carnet();
+  if(h==='stats') statsPage();
   else if(h==='revision') review();
   else if(h.startsWith('m-') && MATS.find(m=>m.id===h.slice(2))) matiere(h.slice(2));
   else if(h.startsWith('c-') && chapFromHash(h)) chapitre(...chapFromHash(h));
@@ -393,6 +405,7 @@ function session(bid){
   const k=s.order[s.i], q=bk.q[k], done=s.done[k], a=s.ans[k], chrono=s.cfg&&s.cfg.chrono&&!done;
   const dur=q.refl?REFL_SEC:((s.cfg&&s.cfg.sec)||60);
   if(s.cfg){ s.cfg.last=Date.now(); save(); }
+  if(!done) startQ(bid+':'+k);
   if(chrono){ if(!clock||clock.bid!==bid||clock.k!==k) clock={bid,k,dur,end:Date.now()+dur*1000}; } else stopClock();
   let h=`<div class="title"><h1>Session en ${esc(M.name)}</h1><p>Question ${s.i+1} sur ${s.order.length}</p>${chrono?`<p class="clockrow">${q.refl?'<span class="refl">Question de réflexion · 1 min 30</span>':''}<span class="clock" id="clk"><span class="tb"><i></i></span><b></b></span></p>`:''}</div>
    <div class="q"><div class="err"><button type="button" id="erb">Signaler un erratum</button></div>
@@ -426,7 +439,18 @@ async function sendErr(bid,n,txt){ txt=String(txt||'').trim().slice(0,2000); if(
   try{ if(dbAll) await dbAll.collection('errata').add({bank:bid,q:n,txt,at:Date.now()}); }catch(e){}
   errOpen=false; session(bid); toast('Merci, erratum enregistré'); }
 function toggle(j){ const s=B(cur), k=s.order[s.i]; if(s.done[k]) return; const a=s.ans[k], x=a.indexOf(j); x<0?a.push(j):a.splice(x,1); save(); session(cur); }
+/* ---------- temps d'étude ---------- */
+const QCAP=5*60000, RCAP=2*60000;
+let qT={key:null,t0:0,hid:0,hs:0};
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) qT.hs=Date.now(); else if(qT.hs){ qT.hid+=Date.now()-qT.hs; qT.hs=0; } });
+function startQ(key){ if(qT.key!==key) qT={key,t0:Date.now(),hid:0,hs:0}; }
+function spent(cap){ const d=Date.now()-qT.t0-qT.hid-(qT.hs?Date.now()-qT.hs:0); qT.key=null; return Math.max(0,Math.min(cap,d)); }
+const dayKey=(d=new Date())=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+function logStudy(mat,kind,items,ms){ st.stats=st.stats||{}; const D0=st.stats[dayKey()]=st.stats[dayKey()]||{};
+  if(kind==='q'){ const m=(D0.m=D0.m||{})[mat]=(D0.m[mat]||{q:0,it:0,t:0}); m.q++; m.it+=items; m.t+=ms; }
+  else { const r=D0.r=D0.r||{n:0,t:0}; r.n++; r.t+=ms; } }
 function validate(){ const s=B(cur), k=s.order[s.i]; if(s.done[k]) return; s.done[k]=true; stopClock(); clock=null;
+  const ms=spent(QCAP), nIt=BANKS[cur].q[k].items.length; logStudy(BANKS[cur].mat,'q',nIt,ms); if(s.cfg){ s.cfg.tm=(s.cfg.tm||0)+ms; s.cfg.nq=(s.cfg.nq||0)+1; }
   const w=BANKS[cur].q[k].items.filter((it,j)=>s.ans[k].includes(j)!==it.v); w.forEach(it=>addCard(cur+':'+it.id));
   save(); counts(); session(cur); }
 function nextQ(){ B(cur).i++; errOpen=false; clock=null; save(); session(cur); window.scrollTo(0,0); }
@@ -435,7 +459,7 @@ function sessionEnd(bid){
   const bk=BANKS[bid], s=B(bid), M=MAT(bk.mat), ks=s.order, idx=ks.filter(k=>s.done[k]), missed=idx.filter(k=>disc(bid,k)), S=statsK(bid,ks);
   view.innerHTML=crumb([['accueil','Matières'],['m-'+bk.mat,M.name],['c-'+bk.mat+'-'+bk.chap,chapName(bk.mat,bk.chap)],[null,bk.title]])+
    `<div class="title"><h1>Session en ${esc(M.name)} · ${esc(chapName(bk.mat,bk.chap))}</h1><p>Bilan de la session</p></div>
-   <div class="box2" style="max-width:900px;margin:auto"><table class="stats" style="margin-top:0"><tr><td>Réussite</td><td>${S.reuss}</td></tr><tr><td>Note</td><td>${S.note}</td></tr><tr><td>Questions de la session</td><td>${S.done} / ${S.n}</td></tr><tr><td>Questions avec erreur</td><td>${missed.length}</td></tr></table>
+   <div class="box2" style="max-width:900px;margin:auto"><table class="stats" style="margin-top:0"><tr><td>Réussite</td><td>${S.reuss}</td></tr><tr><td>Note</td><td>${S.note}</td></tr><tr><td>Questions de la session</td><td>${S.done} / ${S.n}</td></tr><tr><td>Questions avec erreur</td><td>${missed.length}</td></tr>${s.cfg&&s.cfg.nq?`<tr><td>Temps passé</td><td>${fmtDur(s.cfg.tm)}</td></tr><tr><td>Temps moyen par QCM</td><td>${fmtDur(s.cfg.tm/s.cfg.nq)}</td></tr>`:''}</table>
    ${missed.length?`<ul class="list">${missed.map(k=>`<li><span class="t">Question ${bk.q[k].n} · ${esc(bk.q[k].stem.split(',')[0])}</span><button class="btn o sm" type="button" data-k="${k}">Revoir</button><span class="m">${disc(bid,k)} discordance${disc(bid,k)>1?'s':''}</span></li>`).join('')}</ul>`:''}
    ${notionsHtml(missed.map(k=>({b:bid,k,w:wrongJ(bid,k)})))}
    <div class="second sm" style="margin-top:18px">${missed.length?'<button class="btn" type="button" id="epdf">Télécharger mes erreurs (PDF)</button><button class="btn o" type="button" id="redo">Refaire les questions ratées</button>':''}<a class="btn v" href="#s-${bid}">Nouvelle session</a><a class="btn o" href="#revision">Réviser le carnet</a></div></div>`;
@@ -452,6 +476,7 @@ function review(){
     view.innerHTML=`<div class="title"><h1>Révision du carnet d’erreurs</h1><p>${all.length?'Rien à réviser pour l’instant':'Ton carnet est vide'}</p></div>
      <div class="box2" style="max-width:900px;margin:auto;text-align:center"><p>${all.length?'Prochaine carte '+esc(dueLabel({due:nxt}))+'. Les cartes reviennent selon tes notes, comme dans Anki.':'Fais des QCM : chaque item raté devient une carte à réviser ici.'}</p><a class="btn" href="#accueil">Aller aux matières</a></div>`; return; }
   if(!ids.includes(rev.id)) rev={id:ids[0],shown:false};
+  startQ('r:'+rev.id);
   const {b,q,it}=ITEM[rev.id], Qq=BANKS[b].q[q], c=st.cards[rev.id];
   let h=`<div class="title"><h1>Révision du carnet d’erreurs</h1><p>${ids.length} carte${ids.length>1?'s':''} à réviser</p></div>
    <div style="max-width:1000px;margin:auto"><div class="q" style="border-radius:3px"><p class="ctx">${esc(bankLabel(b))} · question ${Qq.n}${Qq.page?' · fiche '+esc(Qq.page):''} · ratée ${c.wrong} fois<br>${esc(Qq.stem.split(',')[0])}</p>
@@ -467,9 +492,39 @@ function review(){
     document.getElementById('sf').addEventListener('click',()=>{toast(!isTrue(it)?'Bien vu !':'Raté : c’était VRAI');sh();}); }
   view.querySelectorAll('.grades button').forEach(b=>b.addEventListener('click',()=>rate(+b.dataset.g)));
 }
-function rate(g){ grade(rev.id,g); rev={id:null,shown:false}; counts(); review(); window.scrollTo(0,0); }
+function rate(g){ logStudy(BANKS[ITEM[rev.id].b].mat,'r',1,spent(RCAP)); grade(rev.id,g); rev={id:null,shown:false}; counts(); review(); window.scrollTo(0,0); }
 
 /* ---------- carnet ---------- */
+function fmtDur(ms){ const s=Math.round((ms||0)/1000); if(s<60) return s+' s'; const m=Math.floor(s/60), r=s%60; if(m<60) return m+' min'+(r?' '+String(r).padStart(2,'0')+' s':''); const h=Math.floor(m/60); return h+' h '+String(m%60).padStart(2,'0')+' min'; }
+function aggr(days,mfil){ const a={q:0,it:0,t:0,r:0,rt:0}; days.forEach(k=>{ const D0=(st.stats||{})[k]; if(!D0) return;
+  Object.entries(D0.m||{}).forEach(([m,v])=>{ if(mfil&&m!==mfil) return; a.q+=v.q; a.it+=v.it; a.t+=v.t; }); if(!mfil&&D0.r){ a.r+=D0.r.n; a.rt+=D0.r.t; } }); return a; }
+const lastDays=n=>Array.from({length:n},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()-(n-1-i)); return dayKey(d); });
+let smat='';
+function statsPage(){ const all=Object.keys(st.stats||{}).sort(), today=dayKey();
+  const per=[['Aujourd’hui',[today]],['7 derniers jours',lastDays(7)],['30 derniers jours',lastDays(30)],['Depuis le début',all]].map(([l,ds])=>[l,aggr(ds,smat)]);
+  const A0=per[0][1], streak=(()=>{ let n=0; for(const k of lastDays(365).reverse()){ const a=aggr([k]); if(a.q||a.r) n++; else if(k!==today) break; } return n; })();
+  const days=lastDays(30), vals=days.map(k=>{ const a=aggr([k],smat); return {k,min:(a.t+a.rt)/60000,q:a.q,r:a.r,t:a.t+a.rt}; });
+  const max=Math.max(5,...vals.map(v=>v.min)), step=max<=10?2:max<=30?5:max<=60?10:30, top=Math.ceil(max/step)*step;
+  const W=720,H=200,L=36,B=24,bw=(W-L)/days.length;
+  const bars=vals.map((v,i)=>{ const h=v.min/top*(H-B-8), x=L+i*bw+2, w=bw-4, y=H-B-h, r=Math.min(4,h,w/2), d=new Date(v.k+'T12:00');
+    return `<g class="bar" tabindex="0" data-tip="${d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})} : ${v.t?fmtDur(v.t):'aucune étude'}${v.q?' · '+v.q+' QCM':''}${v.r?' · '+v.r+' carte'+(v.r>1?'s':'')+' révisée'+(v.r>1?'s':''):''}"><rect x="${L+i*bw}" y="0" width="${bw}" height="${H-B}" fill="transparent"/>${h>0?`<path d="M${x},${H-B}V${y+r}Q${x},${y} ${x+r},${y}H${x+w-r}Q${x+w},${y} ${x+w},${y+r}V${H-B}Z" class="bf"/>`:''}</g>`; }).join('');
+  const grid=Array.from({length:top/step+1},(_,i)=>{ const v=i*step, y=H-B-v/top*(H-B-8); return `<line x1="${L}" x2="${W}" y1="${y}" y2="${y}" class="gl"/><text x="${L-6}" y="${y+4}" text-anchor="end" class="ax">${v}</text>`; }).join('');
+  const xl=[0,7,14,21,29].map(i=>{ const d=new Date(days[i]+'T12:00'); return `<text x="${L+i*bw+bw/2}" y="${H-6}" text-anchor="middle" class="ax">${i===29?'auj.':d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</text>`; }).join('');
+  const mats=MATS.filter(m=>all.some(k=>((st.stats[k]||{}).m||{})[m.id]));
+  const card=([l,a])=>`<div class="sc"><small>${l}</small><b>${fmtDur(a.t+a.rt)}</b><span>${a.q} QCM · ${a.it} items</span><span>Moyenne : ${a.q?fmtDur(a.t/a.q):'—'} / QCM</span>${smat?'':`<span>${a.r} carte${a.r>1?'s':''} révisée${a.r>1?'s':''}</span>`}</div>`;
+  view.innerHTML=`<div class="phead"><span class="bar"></span><div><small>Suivi</small><h1>Statistiques</h1></div></div>
+   <div class="box2"><p class="today">${A0.q||A0.r?`Aujourd’hui, tu as fait <b>${A0.q} QCM</b> (${A0.it} items)${A0.r?` et révisé <b>${A0.r} carte${A0.r>1?'s':''}</b>`:''} en <b>${fmtDur(A0.t+A0.rt)}</b>${A0.q?` · ${fmtDur(A0.t/A0.q)} par QCM en moyenne`:''}.`:'Tu n’as encore rien fait aujourd’hui.'}${streak>1?` <span class="streak">${streak} jours d’affilée</span>`:''}</p>
+   <div class="tools"><label for="sm">Matière</label><select id="sm"><option value="">Toutes</option>${mats.map(m=>`<option value="${m.id}" ${m.id===smat?'selected':''}>${esc(m.name)}</option>`).join('')}</select></div>
+   <div class="scs">${per.map(card).join('')}</div>
+   <h2 class="sh">Temps d’étude par jour · 30 derniers jours <small>(minutes)</small></h2>
+   <div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Minutes d’étude par jour sur les 30 derniers jours">${grid}${bars}${xl}</svg><div class="tip" id="tip" hidden></div></div>
+   ${smat?'':`<h2 class="sh">Par matière · depuis le début</h2><table class="stats mt"><tr><th>Matière</th><th>QCM</th><th>Items</th><th>Temps</th><th>Moyenne / QCM</th></tr>${mats.map(m=>{ const a=aggr(all,m.id); return `<tr><td>${esc(m.name)}</td><td>${a.q}</td><td>${a.it}</td><td>${fmtDur(a.t)}</td><td>${a.q?fmtDur(a.t/a.q):'—'}</td></tr>`; }).join('')||'<tr><td colspan="5">Aucune donnée pour l’instant.</td></tr>'}</table>`}
+   <p class="note">Le temps est compté de l’affichage d’une question jusqu’à sa validation, sans les moments où l’onglet est en arrière-plan (au plus 5 min par QCM et 2 min par carte révisée).</p></div>`;
+  document.getElementById('sm').addEventListener('change',e=>{ smat=e.target.value; statsPage(); });
+  const tip=document.getElementById('tip'), ch=view.querySelector('.chart');
+  view.querySelectorAll('.bar').forEach(g=>{ const show=()=>{ tip.textContent=g.dataset.tip; tip.hidden=false; const r=g.getBoundingClientRect(), c=ch.getBoundingClientRect(); tip.style.left=Math.min(c.width-tip.offsetWidth,Math.max(0,r.left-c.left+r.width/2-tip.offsetWidth/2))+'px'; tip.style.top='-6px'; };
+    g.addEventListener('mouseenter',show); g.addEventListener('focus',show); g.addEventListener('mouseleave',()=>tip.hidden=true); g.addEventListener('blur',()=>tip.hidden=true); });
+}
 let filt='tous', mfilt='tous';
 const matOfCard=id=>BANKS[ITEM[id].b].mat;
 const selIds=()=>cardIds().filter(id=>mfilt==='tous'||matOfCard(id)===mfilt);
@@ -891,6 +946,7 @@ function importProgress(file){
     let nb=0, nc=0;
     Object.entries(s.banks).forEach(([id,b])=>{ if(!BANKS[id]) return; if(doneCount(b)>=doneCount(st.banks[id])){ st.banks[id]=b; nb++; } });
     Object.entries(s.cards).forEach(([id,c])=>{ if(!ITEM[id]||!c) return; const cur=st.cards[id]; if(!cur||(c.wrong||0)>(cur.wrong||0)||(!cur.wrong&&(c.due||0)>(cur.due||0))){ st.cards[id]=c; nc++; } });
+    Object.entries(s.stats||{}).forEach(([k,v])=>{ st.stats=st.stats||{}; if(!st.stats[k]) st.stats[k]=v; });
     save(); if(typeof push==='function'&&dbRef) push(); counts(); route();
     toast(`Progression importée : ${nb} banque${nb>1?'s':''}, ${nc} carte${nc>1?'s':''}`);
   }catch(e){ toast('Fichier non reconnu : choisis un fichier exporté depuis Minor2meD'); } };
