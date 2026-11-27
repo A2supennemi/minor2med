@@ -305,16 +305,22 @@ function statsFor(banks){
 
 /* ---------- répétition espacée ---------- */
 function addCard(id){ const c=st.cards[id];
-  if(c){ c.due=Date.now(); c.ivl=0; c.reps=0; c.wrong=(c.wrong||1)+1; c.lapses=(c.lapses||0)+1; }
-  else st.cards[id]={added:Date.now(),due:Date.now(),ivl:0,ease:2.5,reps:0,lapses:0,wrong:1}; }
+  if(c){ c.due=Date.now(); c.ivl=0; c.reps=0; c.wrong=(c.wrong||1)+1; c.lapses=(c.lapses||0)+1; c.lw=Date.now(); }
+  else st.cards[id]={added:Date.now(),due:Date.now(),ivl:0,ease:2.5,reps:0,lapses:0,wrong:1,lw:Date.now()}; }
 function nextIvl(c,g){ if(g===0) return 0; if(g===1) return c.reps===0?1:Math.max(1,Math.round(c.ivl*1.2));
   if(g===2) return c.reps===0?1:c.reps===1?3:Math.max(c.ivl+1,Math.round(c.ivl*c.ease)); return c.reps===0?4:Math.max(c.ivl+2,Math.round(c.ivl*c.ease*1.3)); }
-function grade(id,g){ const c=st.cards[id]; if(!c) return; const iv=nextIvl(c,g);
+function grade(id,g){ const c=st.cards[id]; if(!c) return; const iv=nextIvl(c,g); c.rv=Date.now();
   if(g===0){ c.lapses++; c.reps=0; c.ease=Math.max(1.3,c.ease-.2); c.ivl=0; c.due=Date.now()+10*60e3; }
   else { if(g===1) c.ease=Math.max(1.3,c.ease-.15); if(g===3) c.ease+=.15; c.reps++; c.ivl=iv; c.due=Date.now()+iv*DAY; } save(); }
 const fmtIvl=d=>d===0?'10 min':d===1?'1 jour':d<31?d+' jours':Math.round(d/30)+' mois';
 const cardIds=()=>Object.keys(st.cards).filter(id=>ITEM[id]);
 const dueIds=()=>cardIds().filter(id=>st.cards[id].due<=Date.now()).sort((a,b)=>st.cards[a].due-st.cards[b].due);
+const since=c=>c.lw||c.added||0;
+function seenBy(c){ const s=since(c), site=c.rv?c.rv>s:(!c.lw&&(c.reps>0||c.ivl>0)), anki=(c.ak||0)>s; return site&&anki?'both':site?'site':anki?'anki':''; }
+function cardLabel(c){ const w=seenBy(c);
+  if(!w) return {t:'à réviser'+((c.ax||0)>since(c)?' · dans Anki':''),now:true};
+  if(w!=='anki'&&c.due>Date.now()) return {t:'révisée · '+dueLabel(c),now:false};
+  return {t:w==='anki'?'révisée dans Anki':w==='both'?'révisée (site et Anki)':'révisée',now:false}; }
 function dueLabel(c){ const d=c.due-Date.now(); if(d<=0) return 'à réviser'; const h=d/36e5; if(h<24) return 'dans '+Math.max(1,Math.round(h))+' h'; const j=Math.round(d/DAY); return 'dans '+j+' jour'+(j>1?'s':''); }
 const MAT=id=>MATS.find(m=>m.id===id);
 const chapName=(m,c)=>{ const C=MAT(m).chaps.find(x=>x[0]===c); return C?C[1]:''; };
@@ -667,21 +673,23 @@ function carnet(){
   view.innerHTML=`<div class="phead"><span class="bar"></span><div><small>Révision</small><h1>Carnet d’erreurs</h1></div><span class="ct"><b>${ids.length}</b>carte${ids.length>1?'s':''}${mname?' · '+esc(mname):''}</span></div>
    <div class="box2">
    <div class="tools"><label for="pm">Matière</label><select id="pm"><option value="tous">Toutes (${all.length})</option>${mused.map(m=>`<option value="${m}" ${m===mfilt?'selected':''}>${esc((MAT(m)||{}).name||m)} (${all.filter(id=>matOfCard(id)===m).length})</option>`).join('')}</select><label for="pf">Banque</label><select id="pf"><option value="tous">Toutes</option>${used.map(b=>`<option value="${b}" ${b===filt?'selected':''}>${esc(bankLabel(b))}</option>`).join('')}</select>
-    <a class="btn" href="#revision">Réviser (${dueIds().length})</a><button class="btn" id="apk" type="button" ${ids.length?'':'disabled'}>Exporter vers Anki (.apkg)${mname?' · '+esc(mname):''}</button><button class="btn o" id="exp" type="button" ${ids.length?'':'disabled'}>Fichier texte pour Anki</button><button class="btn o" id="cp" type="button" ${ids.length?'':'disabled'}>Copier pour Anki</button><button class="btn o" id="cpdf" type="button" ${ids.length?'':'disabled'}>PDF de mes erreurs</button></div>
+    <a class="btn" href="#revision">Réviser (${dueIds().length})</a><button class="btn" id="apk" type="button" ${ids.length?'':'disabled'}>Exporter vers Anki (.apkg)${mname?' · '+esc(mname):''}</button><button class="btn o" id="exp" type="button" ${ids.length?'':'disabled'}>Fichier texte pour Anki</button><button class="btn o" id="cp" type="button" ${ids.length?'':'disabled'}>Copier pour Anki</button><label class="btn o" for="aks" style="cursor:pointer" title="Importe ton paquet exporté depuis Anki pour savoir quelles cartes tu as déjà révisées">Synchroniser avec Anki</label><input id="aks" type="file" accept=".apkg,.colpkg" hidden><button class="btn o" id="cpdf" type="button" ${ids.length?'':'disabled'}>PDF de mes erreurs</button></div>
    ${shown.length?`<ul class="list">${shown.map(id=>{ const {b,q,it}=ITEM[id], c=st.cards[id], Qq=BANKS[b].q[q];
-     return `<li><span class="t">${esc(it.c||it.t)}</span><span class="due ${c.due<=Date.now()?'now':''}">${esc(dueLabel(c))}</span>
+     return `<li><span class="t">${esc(it.c||it.t)}</span>${(L=>`<span class="due ${L.now?'now':''}">${esc(L.t)}</span>`)(cardLabel(c))}
       <span class="m">${isTrue(it)?'VRAI':'FAUX'} · ${esc(bankLabel(b))} · question ${Qq.n} · ratée ${c.wrong} fois <button class="btn o sm" type="button" data-del="${esc(id)}">Retirer</button></span></li>`; }).join('')}</ul>`
    :`<p style="margin-top:16px">Aucune erreur pour l’instant. Fais des QCM pour remplir ton carnet.</p>`}
-   <p class="note"><b>Un carnet par matière</b> : dans Anki, chaque matière a son propre paquet (« Minor2meD › Carnet d’erreurs › Histologie », « › Biologie cellulaire »…). Choisis une matière ci-dessus pour n’exporter que celle-ci, ou « Toutes » pour tout exporter d’un coup, chaque matière restant dans son paquet.<br><b>Exporter vers Anki (.apkg)</b> : double-clique sur le fichier téléchargé, Anki l’ouvre et range les cartes dans le paquet de leur matière, schémas compris. Réexporter plus tard met à jour les cartes déjà importées sans les dupliquer.<br><b>Fichier texte</b> : ne l’ouvre pas en double-cliquant (il s’ouvre comme du texte). Ouvre Anki, puis Fichier › Importer, et choisis ce fichier ; les schémas n’y sont pas inclus.</p></div>`;
+   <p class="note"><b>Un carnet par matière</b> : dans Anki, chaque matière a son propre paquet (« Minor2meD › Carnet d’erreurs › Histologie », « › Biologie cellulaire »…). Choisis une matière ci-dessus pour n’exporter que celle-ci, ou « Toutes » pour tout exporter d’un coup, chaque matière restant dans son paquet.<br><b>Synchroniser avec Anki</b> : dans Anki, Fichier › Exporter, choisis le paquet « Minor2meD », format « Paquet de cartes (.apkg) », coche « Inclure les informations de planification », puis importe ce fichier ici. Les cartes déjà vues dans Anki ne sont plus marquées « à réviser ».<br><b>Exporter vers Anki (.apkg)</b> : double-clique sur le fichier téléchargé, Anki l’ouvre et range les cartes dans le paquet de leur matière, schémas compris. Réexporter plus tard met à jour les cartes déjà importées sans les dupliquer.<br><b>Fichier texte</b> : ne l’ouvre pas en double-cliquant (il s’ouvre comme du texte). Ouvre Anki, puis Fichier › Importer, et choisis ce fichier ; les schémas n’y sont pas inclus.</p></div>`;
   document.getElementById('pf').addEventListener('change',e=>{filt=e.target.value;carnet();});
   document.getElementById('pm').addEventListener('change',e=>{mfilt=e.target.value;filt='tous';carnet();});
   view.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{delete st.cards[b.dataset.del];save();counts();carnet();}));
   const e=document.getElementById('exp'); if(e) e.addEventListener('click',exportAnki);
   const ap=document.getElementById('apk'); if(ap) ap.addEventListener('click',exportApkg);
+  const ak=document.getElementById('aks'); if(ak) ak.addEventListener('change',()=>{ if(ak.files[0]) ankiSync(ak.files[0]); ak.value=''; });
   const cpd=document.getElementById('cpdf'); if(cpd) cpd.addEventListener('click',carnetPdf);
   const c=document.getElementById('cp'); if(c) c.addEventListener('click',async()=>{ try{ await navigator.clipboard.writeText(ankiText()); toast('Copié : colle-le dans un fichier .txt puis importe-le dans Anki'); }catch(err){ toast('Copie refusée par le navigateur'); } });
 }
-function ankiText(){ const clean=s=>String(s).replace(/[\t\r\n]+/g,' ');
+function markExported(ids){ const n=Date.now(); ids.forEach(id=>{ if(st.cards[id]) st.cards[id].ax=n; }); save(); if(location.hash==='#carnet') setTimeout(carnet,0); }
+function ankiText(){ const clean=s=>String(s).replace(/[\t\r\n]+/g,' '); markExported(selIds());
   const rows=selIds().map(id=>{ const {b,q,it}=ITEM[id], Qq=BANKS[b].q[q];
     const front=`<div style="text-align:center">${esc(it.c||it.t)}<br><br>Vrai ou faux ?</div>`;
     const back=`<div style="text-align:center"><span style="color:${isTrue(it)?'#1fa83a':'#e3131b'}">${labOf(it)}</span> ${corrBody(it)}${Qq.rappel?'<hr><i>Rappel :</i> '+esc(Qq.rappel):''}</div>`;
@@ -694,6 +702,27 @@ async function exportAnki(){ const data=ankiText(), fn='Minor2meD_carnet_erreurs
     toast('Fichier exporté : importe-le dans Anki');
   }catch(e){ toast('Téléchargement indisponible : utilise « Copier pour Anki »'); } }
 
+
+async function ankiSync(file){ toast('Lecture du paquet Anki…');
+  try{ await loadScript('lib/sql-asm.js'); await loadScript('lib/jszip.min.js');
+    const zip=await JSZip.loadAsync(file); let buf=null;
+    if(zip.file('collection.anki21b')){ await loadScript('lib/fzstd.min.js'); buf=fzstd.decompress(new Uint8Array(await zip.file('collection.anki21b').async('uint8array'))); }
+    else if(zip.file('collection.anki21')) buf=await zip.file('collection.anki21').async('uint8array');
+    else if(zip.file('collection.anki2')) buf=await zip.file('collection.anki2').async('uint8array');
+    if(!buf) throw new Error('nocol');
+    const SQL=await window.initSqlJs(), db=new SQL.Database(buf);
+    const rs=db.exec(`SELECT n.guid, n.flds, c.reps, c.type, (SELECT max(r.id) FROM revlog r WHERE r.cid=c.id) FROM cards c JOIN notes n ON n.id=c.nid`); db.close();
+    const rows=rs.length?rs[0].values:[];
+    const byGuid={}, byText={}, norm=s=>stripHtml(s).replace(/\s*Vrai ou faux \?\s*$/i,'').toLowerCase().replace(/\s+/g,' ').trim();
+    Object.keys(st.cards).forEach(id=>{ if(!ITEM[id]) return; byGuid['m2d_'+id.replace(/[^A-Za-z0-9]/g,'_')]=id; const it=ITEM[id].it; byText[norm(esc(it.c||it.t))]=id; });
+    let seen=0, found=0;
+    rows.forEach(([guid,flds,reps,type,last])=>{ const id=byGuid[guid]||byText[norm(String(flds).split('\x1f')[0])]; if(!id||!st.cards[id]) return; found++;
+      const c=st.cards[id]; if(!c.ax) c.ax=Date.now()-1;
+      if(reps>0||type>0){ const tl=last||Date.now(); if((c.ak||0)<tl){ c.ak=tl; } if(c.ak>since(c)) seen++; } });
+    save(); counts(); carnet();
+    if(!found) toast('Aucune carte Minor2meD trouvée dans ce paquet');
+    else toast(found+' carte'+(found>1?'s':'')+' retrouvée'+(found>1?'s':'')+' dans Anki, dont '+seen+' déjà révisée'+(seen>1?'s':''));
+  }catch(e){ console.error(e); toast('Fichier Anki illisible : exporte le paquet en .apkg avec « Inclure les informations de planification »'); } }
 
 /* ---------- notions à revoir ---------- */
 function wrongJ(b,k){ const a=B(b).ans[k]; return BANKS[b].q[k].items.map((it,j)=>a.includes(j)!==it.v?j:-1).filter(j=>j>=0); }
@@ -821,7 +850,7 @@ CREATE INDEX ix_cards_nid on cards (nid); CREATE INDEX ix_cards_sched on cards (
     catch(e){ if(e&&e.code==='declined'){ toast('Téléchargement annulé'); return; }
       if(e&&e.code==='rejected_extension'){ await saveBlob('Minor2meD_carnet_erreurs.apkg.zip',blob); toast('Ici, renomme le fichier en « .apkg » (supprime « .zip ») puis double-clique dessus'); return; } }
     if(!done){ const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=fn; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000); }
-    toast('Paquet Anki téléchargé : double-clique dessus pour l’ouvrir dans Anki');
+    markExported(ids); toast('Paquet Anki téléchargé : double-clique dessus pour l’ouvrir dans Anki');
   }catch(e){ console.error(e); toast('Export .apkg impossible ici : utilise le fichier texte'); }
 }
 
