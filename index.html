@@ -118,6 +118,7 @@ main{padding:22px max(2vw,12px) 50px}
 .em{font-variant-numeric:tabular-nums;color:var(--ink)}
 table.edt{table-layout:fixed;width:100%}table.edt th,table.edt td{text-align:center!important;width:auto!important}
 .genb{margin-top:18px;border:1px solid var(--line);border-radius:4px;padding:12px 14px}.genb h3{margin-top:0!important}.genb input{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:3px;background:var(--bg,#fff);color:var(--ink);margin-top:4px}
+.gsteps{margin:4px 0 0;padding:0;list-style:none;display:grid;gap:10px}.gsteps li{display:grid;gap:4px}.gsteps span{font-size:13px;color:var(--mute)}.gsteps .btn{justify-self:start}
 .genta{width:100%;min-height:220px;font:13px/1.4 ui-monospace,monospace;margin-top:6px}
 .lastbil{max-width:760px;margin:26px auto 0}.bil{margin-top:22px;border-top:1px solid var(--line);padding-top:14px}.bil h2{font-size:18px;margin:0 0 10px}.bil h3{font-size:14px;margin:16px 0 8px;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
 .dist{display:grid;gap:6px;max-width:560px}.dr{display:grid;grid-template-columns:90px 1fr 70px;align-items:center;gap:10px;font-size:14px}.db{height:12px;background:light-dark(#eee,#2a2a2e);border-radius:6px;overflow:hidden}.db span{display:block;height:100%;background:var(--red);border-radius:6px}.db span.ok{background:#1fa83a}.dv{text-align:right;font-variant-numeric:tabular-nums}
@@ -539,9 +540,11 @@ QCM ciblés :
 
 ${ex}`; }
 function genBox(bid,bd){ const T=genTargets(bid,bd); if(!T.length) return ''; const bk=BANKS[bid], M=MAT(bk.mat), pu=((st.prefs||{}).proj||{})[bk.mat]||'';
-  return `<div class="genb"><h3>Générer 20 QCM ciblés</h3><p class="note" style="margin:0 0 10px">${T.length} QCM ciblé${T.length>1?'s':''} (2 erreurs ou plus, ou hésitation). Le bouton copie une demande prête à coller dans ton projet Claude de ${esc(M.name)} et ouvre le projet. Colle ensuite la réponse de Claude dans « Ajouter des QCM ».</p>
+  return `<div class="genb"><h3>Générer 20 QCM ciblés</h3><p class="note" style="margin:0 0 10px">${T.length} QCM ciblé${T.length>1?'s':''} (2 erreurs ou plus, ou hésitation). La demande de 20 QCM du même type (même longueur d’énoncé, même difficulté) sur l’ensemble des notions ciblées est déjà rédigée : elle part dans ton projet Claude de ${esc(M.name)}.</p>
    <label class="fld" style="display:block;margin-bottom:8px">Lien de ton projet Claude · ${esc(M.name)}<input type="url" data-proj="${bk.mat}" value="${esc(pu)}" placeholder="https://claude.ai/project/…" style="width:100%"></label>
-   <div class="second sm" style="justify-content:flex-start"><button class="btn v" type="button" data-gen="${bid}">Copier la demande et ouvrir le projet</button><a class="btn o" href="#ajouter" data-genfor="${bid}">Coller les QCM générés</a></div>
+   <ol class="gsteps"><li><button class="btn v" type="button" data-gen="${bid}">1 · Envoyer la demande à mon projet Claude</button><span>La demande est copiée et ton projet s’ouvre : colle-la (Ctrl/Cmd + V) et envoie.</span></li>
+   <li><button class="btn v" type="button" data-genimp="${bid}">2 · Importer les 20 QCM de Claude</button><span>Dans Claude, clique « Copier » sous la réponse, puis ce bouton : la session est créée dans ce chapitre.</span></li></ol>
+   <details style="margin-top:6px"><summary style="cursor:pointer;font-size:14px">Coller la réponse à la main</summary><textarea class="genta gpaste" placeholder="Colle ici la réponse complète de Claude"></textarea><button class="btn o" type="button" data-genimp="${bid}" data-manual="1" style="margin-top:6px">Importer ce texte</button></details>
    <details style="margin-top:8px"><summary style="cursor:pointer;font-size:14px">Voir la demande</summary><textarea readonly class="genta">${esc(genPrompt(bid,bd))}</textarea></details></div>`; }
 function bilanHtml(bd,title,bid){ if(!bd||!bd.nq) return '';
   const mx=Math.max(1,...bd.dist), sec=Math.round(bd.thr/1000);
@@ -551,7 +554,21 @@ function bilanHtml(bd,title,bid){ if(!bd||!bd.nq) return '';
    <h3>QCM par nombre d’erreurs</h3><div class="dist">${bars}</div>
    <h3>Notions à retravailler</h3>${bd.items.length?`<p class="note" style="margin:0 0 8px">Pour chaque QCM, les items que tu as ratés et ceux sur lesquels tu as hésité plus de ${sec} s avant de cocher, même si ta réponse était juste.</p><ul class="notions">${notes}</ul>`:'<p class="note">Aucune erreur ni hésitation : rien à retravailler sur cette session.</p>'}${bid?genBox(bid,bd):''}</section>`; }
 document.addEventListener('change',e=>{ const i=e.target.closest&&e.target.closest('[data-proj]'); if(!i) return; const v=i.value.trim(); if(v&&!/^https:\/\/claude\.ai\//.test(v)){ toast('Colle un lien qui commence par https://claude.ai/'); return; } st.prefs.proj=st.prefs.proj||{}; st.prefs.proj[i.dataset.proj]=v; save(); toast('Lien du projet enregistré'); });
-document.addEventListener('click',e=>{ const g=e.target.closest&&e.target.closest('[data-gen],[data-genfor]'); if(!g) return; const bid=g.dataset.gen||g.dataset.genfor, bk=BANKS[bid], s=B(bid);
+async function genImport(bid,raw){ const bk=BANKS[bid];
+  const parts=raw.split(/^\s*=+\s*CORRIG[ÉE]\s*=*\s*$/im); if(parts.length<2){ toast('Réponse incomplète : il manque le bloc « === CORRIGÉ === »'); return; }
+  const sl=parts[0].replace(/^[\s\S]*?^\s*=+\s*SUJET\s*=*\s*$/im,'').split('\n'), cl=parts[1].split('\n');
+  const {qs}=buildQuestions(parseSujet(sl.map(x=>x.trim()).filter(Boolean)),parseCorr(cl.map(x=>x.trim()).filter(Boolean)));
+  const ok=qs.filter(q=>q.stem&&q.items&&q.items.length===5&&q.items.every(it=>it.t&&(it.lab==='VRAI'||it.lab==='FAUX')));
+  if(!ok.length){ toast('Aucun QCM reconnu dans la réponse de Claude'); return; }
+  const id='u'+Date.now().toString(36), d=new Date();
+  const bank={id,mat:bk.mat,chap:bk.chap,title:'QCM ciblés · '+d.toLocaleDateString('fr-FR',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),desc:'',detail:false,custom:true,created:Date.now(),
+    q:ok.map((q,i)=>{ const inex=/inexacte/i.test(q.stem), n=i+1; return {n,stem:q.stem.trim(),page:'',rappel:'',pages:[],items:q.items.map((it,k)=>({id:n+'-'+k,t:it.t.trim(),lab:it.lab,v:(it.lab==='VRAI')!==inex,x:(it.x||'').trim()}))}; })};
+  await persistBank(bank,[]); toast(ok.length+' QCM ciblés ajoutés'+(ok.length<qs.length?' ('+(qs.length-ok.length)+' incomplets ignorés)':'')); location.hash='s-'+id; }
+document.addEventListener('click',e=>{ const gi=e.target.closest&&e.target.closest('[data-genimp]'); if(gi){ const bid=gi.dataset.genimp;
+    if(gi.dataset.manual){ genImport(bid,gi.closest('details').querySelector('.gpaste').value); return; }
+    if(!navigator.clipboard||!navigator.clipboard.readText){ const d=gi.closest('.genb').querySelector('.gpaste').closest('details'); d.open=true; toast('Colle la réponse dans le cadre'); return; }
+    navigator.clipboard.readText().then(txt=>genImport(bid,txt),()=>{ const d=gi.closest('.genb').querySelector('.gpaste').closest('details'); d.open=true; toast('Accès au presse-papiers refusé : colle la réponse dans le cadre'); }); return; }
+  const g=e.target.closest&&e.target.closest('[data-gen],[data-genfor]'); if(!g) return; const bid=g.dataset.gen||g.dataset.genfor, bk=BANKS[bid], s=B(bid);
   st.prefs.genFor={mat:bk.mat,chap:bk.chap,title:'QCM ciblés · '+chapName(bk.mat,bk.chap)}; save();
   if(!g.dataset.gen) return;
   const txt=genPrompt(bid,s.bilan), u=((st.prefs.proj||{})[bk.mat])||'https://claude.ai/new';
