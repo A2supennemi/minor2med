@@ -377,7 +377,7 @@ function chapitre(mid,cid){
 function setup(bid){
   const bk=BANKS[bid], s=B(bid), M=MAT(bk.mat), N=bk.q.length;
   st.prefs=st.prefs||{n:20,mode:'new',ord:'rand',chrono:false};
-  const P=st.prefs; P.secs=P.secs||{}; const sec=+P.secs[bk.mat]||secOf(bk.mat);
+  const P=st.prefs; if(!P.iord) P.iord='rand'; P.secs=P.secs||{}; const sec=+P.secs[bk.mat]||secOf(bk.mat);
   const fmt=x=>x%60===0?(x/60)+' min':x>60?Math.floor(x/60)+' min '+(x%60)+' s':x+' s';
   const notDone=[...bk.q.keys()].filter(k=>!s.done[k]), missed=[...bk.q.keys()].filter(k=>s.done[k]&&disc(bid,k));
   const pool=P.mode==='new'?notDone:P.mode==='ko'?missed:[...bk.q.keys()];
@@ -389,7 +389,8 @@ function setup(bid){
    ${run?`<a class="mainbtn resbig" href="#b-${bid}">Reprendre ma session · question ${s.i+1} sur ${s.order.length}</a><p class="note" style="text-align:center;margin:-6px 0 18px">Ta session est enregistrée${s.cfg&&s.cfg.chrono?' (chronomètre activé)':''}. Commencer une nouvelle session plus bas la remplacera.</p>`:''}
    <div class="opt"><span>Nombre de QCM</span>${seg('n',[...sizes.map(x=>[x,String(x)]),['all','Tous ('+N+')']])}</div>
    <div class="opt"><span>Questions</span>${seg('mode',[['new','Pas encore faites ('+notDone.length+')',!notDone.length],['all','Toutes ('+N+')'],['ko','Mes questions ratées ('+missed.length+')',!missed.length]])}</div>
-   <div class="opt"><span>Ordre</span>${seg('ord',[['rand','Aléatoire'],['seq','Dans l’ordre']])}</div>
+   <div class="opt"><span>Ordre des questions</span>${seg('ord',[['rand','Aléatoire'],['seq','Dans l’ordre']])}</div>
+   <div class="opt"><span>Ordre des items</span>${seg('iord',[['rand','Mélangés'],['seq','Dans l’ordre']])}<p>${P.iord==='seq'?'Les items gardent l’ordre A → E du sujet.':'Les items A à E sont mélangés à chaque nouvelle session.'}</p></div>
    <div class="opt"><span>Chronomètre</span>${seg('chrono',[[false,'Sans'],[true,'Avec']])}${P.chrono?'':'<p>Validation automatique à la fin du temps.</p>'}</div>
    ${P.chrono?`<div class="opt"><span>Temps par QCM</span><div class="seg" role="group">${[30,45,60,90,120].map(x=>`<button type="button" data-sec="${x}" aria-pressed="${sec===x}">${fmt(x)}</button>`).join('')}<label class="secin"><span>Autre</span><input type="number" id="secx" min="10" max="600" step="5" value="${[30,45,60,90,120].includes(sec)?'':sec}" placeholder="s" aria-label="Temps personnalisé en secondes"><span>s</span></label></div><p>${fmt(sec)} par QCM${bk.q.some(x=>x.refl)?' (1 min 30 pour les questions de réflexion)':''} · validation automatique à la fin du temps.</p></div>`:''}
    <button class="mainbtn" type="button" id="go" style="background:var(--ses);border-radius:3px" ${pool.length?'':'disabled'}>${pool.length?`Commencer · ${Math.min(pool.length,P.n==='all'?N:+P.n)} QCM`:'Aucune question dans cette sélection'}</button></div>`;
@@ -400,6 +401,7 @@ function setup(bid){
     let sel=pool.slice(); if(P.ord==='rand') for(let i=sel.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[sel[i],sel[j]]=[sel[j],sel[i]];}
     sel=sel.slice(0,P.n==='all'?N:+P.n);
     sel.forEach(k=>{ s.ans[k]=[]; s.done[k]=false; });
+    s.perm={}; if(P.iord!=='seq') sel.forEach(k=>{ const p=bk.q[k].items.map((_,j)=>j); for(let i=p.length-1;i>0;i--){const r=Math.floor(Math.random()*(i+1));[p[i],p[r]]=[p[r],p[i]];} s.perm[k]=p; });
     s.order=sel; s.i=0; s.cfg={chrono:!!P.chrono, sec, started:Date.now()}; clock=null; save(); location.hash='b-'+bid; });
 }
 
@@ -425,11 +427,12 @@ function session(bid){
    <p class="stem">${esc(q.stem)}</p>`;
   if(q.fig) h+=`<figure><img src="${IMG[q.fig]}" alt="Schéma de la question ${q.n}, tiré de la fiche de cours"></figure>`;
   h+='<ul class="items">';
-  q.items.forEach((it,j)=>{ const on=a.includes(j);
+  const perm=(s.perm&&Array.isArray(s.perm[k])&&s.perm[k].length===q.items.length)?s.perm[k]:q.items.map((_,j)=>j);
+  perm.forEach((j,pos)=>{ const it=q.items[j], on=a.includes(j);
     if(done){ const good=on===it.v;
-      h+=`<li class="it done${on?' on':''}"><span class="res">${good?ICON_OK:ICON_KO}</span><button type="button" aria-pressed="${on}" disabled><span class="circ">${L[j]}</span><span class="txt">${esc(it.t)}</span></button>
+      h+=`<li class="it done${on?' on':''}"><span class="res">${good?ICON_OK:ICON_KO}</span><button type="button" aria-pressed="${on}" disabled><span class="circ">${L[pos]}</span><span class="txt">${esc(it.t)}</span></button>
         <p class="corr"><b>${labOf(it)}</b>${corrBody(it)}</p></li>`;
-    } else h+=`<li class="it nores${on?' on':''}"><span class="res"></span><button type="button" data-j="${j}" aria-pressed="${on}"><span class="circ">${L[j]}</span><span class="txt">${esc(it.t)}</span></button></li>`; });
+    } else h+=`<li class="it nores${on?' on':''}"><span class="res"></span><button type="button" data-j="${j}" aria-pressed="${on}"><span class="circ">${L[pos]}</span><span class="txt">${esc(it.t)}</span></button></li>`; });
   h+='</ul>';
   if(done){ const n=disc(bid,k);
     h+=`<p class="score">${n?`<b class="ko">${n} discordance${n>1?'s':''}</b> · ${n} carte${n>1?'s':''} ajoutée${n>1?'s':''} à ton carnet d’erreurs`:'<b class="ok">Aucune discordance</b>'}</p>`;
@@ -636,10 +639,11 @@ function errorsPdf(title, entries, stats, carnetMode){
     para(`Question ${q.n}`+(carnetMode?`  ·  ${bankLabel(e.b)}`:''),{bold:true,size:11});
     para(q.stem,{bold:true,size:11,gap:6});
     if(q.fig && IMG[q.fig]){ const [iw,ih]=D.dim[q.fig]||[600,400]; let w=Math.min(W*0.8, iw*0.6), h=w*ih/iw; if(h>300){h=300;w=h*iw/ih;} need(h+8); try{ doc.addImage(IMG[q.fig],'JPEG',X+(W-w)/2,y,w,h); }catch(er){} y+=h+8; }
-    q.items.forEach((it,j)=>{
+    const sp=st.banks[e.b]&&st.banks[e.b].perm, perm=(!carnetMode&&sp&&Array.isArray(sp[e.k])&&sp[e.k].length===q.items.length)?sp[e.k]:q.items.map((_,j)=>j);
+    perm.forEach((j,pos)=>{ const it=q.items[j];
       const bad=e.w.includes(j);
       doc.setFont('Arial','bold'); doc.setFontSize(11); need(15);
-      doc.text(L[j]+'.', X, y+11);
+      doc.text(L[pos]+'.', X, y+11);
       para(it.t,{size:11,x:X+16,w:W-16});
       const mine = e.ans ? (e.ans.includes(j)?'l’as cochée':'ne l’as pas cochée') : '';
       const tag = bad ? 'ERREUR' + (mine?` (tu ${mine})`:'') : (e.ans?'Juste':'');
