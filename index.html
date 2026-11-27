@@ -117,6 +117,8 @@ main{padding:22px max(2vw,12px) 50px}
 @media (max-width:640px){.hst{grid-template-columns:1fr}}
 .em{font-variant-numeric:tabular-nums;color:var(--ink)}
 table.edt{table-layout:fixed;width:100%}table.edt th,table.edt td{text-align:center!important;width:auto!important}
+.genb{margin-top:18px;border:1px solid var(--line);border-radius:4px;padding:12px 14px}.genb h3{margin-top:0!important}.genb input{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:3px;background:var(--bg,#fff);color:var(--ink);margin-top:4px}
+.genta{width:100%;min-height:220px;font:13px/1.4 ui-monospace,monospace;margin-top:6px}
 .lastbil{max-width:760px;margin:26px auto 0}.bil{margin-top:22px;border-top:1px solid var(--line);padding-top:14px}.bil h2{font-size:18px;margin:0 0 10px}.bil h3{font-size:14px;margin:16px 0 8px;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
 .dist{display:grid;gap:6px;max-width:560px}.dr{display:grid;grid-template-columns:90px 1fr 70px;align-items:center;gap:10px;font-size:14px}.db{height:12px;background:light-dark(#eee,#2a2a2e);border-radius:6px;overflow:hidden}.db span{display:block;height:100%;background:var(--red);border-radius:6px}.db span.ok{background:#1fa83a}.dv{text-align:right;font-variant-numeric:tabular-nums}
 .notions{list-style:none;padding:0!important;margin:0;border:0!important;background:none!important;display:grid;gap:8px}.notions>li{border:1px solid var(--line);border-radius:4px;padding:10px 12px}.nt{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:15px}.nq{color:var(--mute);font-size:13px}
@@ -401,7 +403,7 @@ function setup(bid){
    <div class="opt"><span>Chronomètre</span>${seg('chrono',[[false,'Sans'],[true,'Avec']])}${P.chrono?'':'<p>Validation automatique à la fin du temps.</p>'}</div>
    ${P.chrono?`<div class="opt"><span>Temps par QCM</span><div class="seg" role="group">${[30,45,60,90,120].map(x=>`<button type="button" data-sec="${x}" aria-pressed="${sec===x}">${fmt(x)}</button>`).join('')}<label class="secin"><span>Autre</span><input type="number" id="secx" min="10" max="600" step="5" value="${[30,45,60,90,120].includes(sec)?'':sec}" placeholder="s" aria-label="Temps personnalisé en secondes"><span>s</span></label></div><p>${fmt(sec)} par QCM${bk.q.some(x=>x.refl)?' (1 min 30 pour les questions de réflexion)':''} · validation automatique à la fin du temps.</p></div>`:''}
    <button class="mainbtn" type="button" id="go" style="background:var(--ses);border-radius:3px" ${pool.length?'':'disabled'}>${pool.length?`Commencer · ${Math.min(pool.length,P.n==='all'?N:+P.n)} QCM`:'Aucune question dans cette sélection'}</button></div>
-   ${s.bilan&&s.bilan.nq?`<div class="lastbil">${bilanHtml(s.bilan,'Dernier bilan · '+new Date(s.bilan.at).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' à '+new Date(s.bilan.at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+(s.bilan.note&&s.bilan.note!=='indéterminée'?' · '+s.bilan.note:''))}</div>`:''}`;
+   ${s.bilan&&s.bilan.nq?`<div class="lastbil">${bilanHtml(s.bilan,'Dernier bilan · '+new Date(s.bilan.at).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' à '+new Date(s.bilan.at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+(s.bilan.note&&s.bilan.note!=='indéterminée'?' · '+s.bilan.note:''),bid)}</div>`:''}`;
   view.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{ const k=b.dataset.k; let v=b.dataset.v; if(k==='chrono') v=(v==='true'); else if(k==='n'&&v!=='all') v=+v; P[k]=v; save(); setup(bid); }));
   view.querySelectorAll('[data-sec]').forEach(b=>b.addEventListener('click',()=>{ P.secs[bk.mat]=+b.dataset.sec; save(); setup(bid); }));
   const sx=document.getElementById('secx'); if(sx) sx.addEventListener('change',()=>{ const v=Math.round(+sx.value); if(v>=10&&v<=600){ P.secs[bk.mat]=v; save(); setup(bid); } else { toast('Choisis un temps entre 10 et 600 secondes'); sx.value=''; } });
@@ -498,13 +500,63 @@ function bilanData(bid){ const bk=BANKS[bid], s=B(bid), thr=hesThr(bk.mat), dist
     if(its.length) items.push({n:q.n, topic:topicOf(q), err:d, hes:its.filter(o=>o.t>thr).length, w:its.map(o=>({x:o.x,ko:o.ko,t:Math.round(o.t/1000)}))}); });
   items.sort((a,b)=>b.err-a.err||b.hes-a.hes||a.n-b.n);
   return {at:Date.now(),thr,dist,items,nq:done.length}; }
-function bilanHtml(bd,title){ if(!bd||!bd.nq) return '';
+function genTargets(bid,bd){ const bk=BANKS[bid]; return (bd.items||[]).filter(it=>it.err>=2||it.hes>0).map(it=>({...it,q:bk.q.find(q=>q.n===it.n)})).filter(x=>x.q); }
+function genPrompt(bid,bd){ const bk=BANKS[bid], M=MAT(bk.mat), T=genTargets(bid,bd), L='ABCDE';
+  const avg=Math.round(T.reduce((a,x)=>a+x.q.stem.length,0)/Math.max(1,T.length));
+  const ex=T.map((x,i)=>{ const q=x.q; return `--- QCM ciblé ${i+1} (Q${q.n}${x.err?` · ${x.err} erreur${x.err>1?'s':''}`:''}${x.hes?` · ${x.hes} hésitation${x.hes>1?'s':''}`:''}) · notion : ${x.topic}
+${q.ctx?q.ctx+'\n':''}${q.stem}
+${q.items.map((it,j)=>`${L[j]}. ${it.t}  →  ${it.v?'VRAI':'FAUX'}${it.x?' – '+it.x:''}`).join('\n')}
+Items qui m’ont posé problème : ${x.w.map(o=>`« ${o.x} » (${[o.ko?'erreur':'',o.t>Math.round(bd.thr/1000)?'hésitation '+o.t+' s':''].filter(Boolean).join(', ')})`).join(' ; ')}`; }).join('\n\n');
+  return `Je révise ${M.name} (chapitre : ${chapName(bk.mat,bk.chap)}). Dans ma dernière session, voici les ${T.length} QCM sur lesquels j’ai fait 2 erreurs ou plus, ou sur lesquels j’ai hésité longtemps.
+
+Génère 20 QCM supplémentaires qui couvrent l’ensemble des notions ciblées ci-dessous (réparties entre elles, en insistant sur les items qui m’ont posé problème). Contraintes :
+- même type que les QCM ciblés : même style d’énoncé, longueur d’énoncé comparable (environ ${avg} caractères en moyenne), même niveau de difficulté ;
+- 5 items A à E par QCM, au moins un item vrai, pas de reprise mot pour mot des items ci-dessous ;
+- reste fidèle au cours de ce projet ; pas de notion hors programme.
+
+Réponds UNIQUEMENT dans ce format exact, sans rien d’autre, pour que je puisse le coller dans mon site :
+
+=== SUJET ===
+Question 1
+Énoncé…
+A. …
+B. …
+C. …
+D. …
+E. …
+(… jusqu’à Question 20)
+
+=== CORRIGÉ ===
+Question 1 – Réponse(s) : AC
+A. VRAI – justification courte
+B. FAUX – justification courte
+C. VRAI – justification courte
+D. FAUX – justification courte
+E. FAUX – justification courte
+(… jusqu’à Question 20)
+
+QCM ciblés :
+
+${ex}`; }
+function genBox(bid,bd){ const T=genTargets(bid,bd); if(!T.length) return ''; const bk=BANKS[bid], M=MAT(bk.mat), pu=((st.prefs||{}).proj||{})[bk.mat]||'';
+  return `<div class="genb"><h3>Générer 20 QCM ciblés</h3><p class="note" style="margin:0 0 10px">${T.length} QCM ciblé${T.length>1?'s':''} (2 erreurs ou plus, ou hésitation). Le bouton copie une demande prête à coller dans ton projet Claude de ${esc(M.name)} et ouvre le projet. Colle ensuite la réponse de Claude dans « Ajouter des QCM ».</p>
+   <label class="fld" style="display:block;margin-bottom:8px">Lien de ton projet Claude · ${esc(M.name)}<input type="url" data-proj="${bk.mat}" value="${esc(pu)}" placeholder="https://claude.ai/project/…" style="width:100%"></label>
+   <div class="second sm" style="justify-content:flex-start"><button class="btn v" type="button" data-gen="${bid}">Copier la demande et ouvrir le projet</button><a class="btn o" href="#ajouter" data-genfor="${bid}">Coller les QCM générés</a></div>
+   <details style="margin-top:8px"><summary style="cursor:pointer;font-size:14px">Voir la demande</summary><textarea readonly class="genta">${esc(genPrompt(bid,bd))}</textarea></details></div>`; }
+function bilanHtml(bd,title,bid){ if(!bd||!bd.nq) return '';
   const mx=Math.max(1,...bd.dist), sec=Math.round(bd.thr/1000);
   const bars=bd.dist.map((v,i)=>`<div class="dr"><span class="dl">${i} erreur${i>1?'s':''}</span><span class="db"><span style="width:${Math.round(v/mx*100)}%" class="${i===0?'ok':''}"></span></span><span class="dv">${v} QCM</span></div>`).join('');
   const notes=bd.items.map(it=>`<li><div class="nt"><b>${esc(it.topic)}</b> <span class="nq">Q${it.n}</span>${it.err?`<span class="tag e">${it.err} erreur${it.err>1?'s':''}</span>`:''}${it.hes?`<span class="tag h">${it.hes} hésitation${it.hes>1?'s':''}</span>`:''}</div><ul class="nw">${it.w.map(o=>`<li>${esc(o.x)} ${o.ko?'<span class="tag e">erreur</span>':''}${o.t>Math.round(bd.thr/1000)?`<span class="tag h">${o.t} s</span>`:''}</li>`).join('')}</ul></li>`).join('');
   return `<section class="bil"><h2>${title||'Bilan détaillé'}</h2>
    <h3>QCM par nombre d’erreurs</h3><div class="dist">${bars}</div>
-   <h3>Notions à retravailler</h3>${bd.items.length?`<p class="note" style="margin:0 0 8px">Pour chaque QCM, les items que tu as ratés et ceux sur lesquels tu as hésité plus de ${sec} s avant de cocher, même si ta réponse était juste.</p><ul class="notions">${notes}</ul>`:'<p class="note">Aucune erreur ni hésitation : rien à retravailler sur cette session.</p>'}</section>`; }
+   <h3>Notions à retravailler</h3>${bd.items.length?`<p class="note" style="margin:0 0 8px">Pour chaque QCM, les items que tu as ratés et ceux sur lesquels tu as hésité plus de ${sec} s avant de cocher, même si ta réponse était juste.</p><ul class="notions">${notes}</ul>`:'<p class="note">Aucune erreur ni hésitation : rien à retravailler sur cette session.</p>'}${bid?genBox(bid,bd):''}</section>`; }
+document.addEventListener('change',e=>{ const i=e.target.closest&&e.target.closest('[data-proj]'); if(!i) return; const v=i.value.trim(); if(v&&!/^https:\/\/claude\.ai\//.test(v)){ toast('Colle un lien qui commence par https://claude.ai/'); return; } st.prefs.proj=st.prefs.proj||{}; st.prefs.proj[i.dataset.proj]=v; save(); toast('Lien du projet enregistré'); });
+document.addEventListener('click',e=>{ const g=e.target.closest&&e.target.closest('[data-gen],[data-genfor]'); if(!g) return; const bid=g.dataset.gen||g.dataset.genfor, bk=BANKS[bid], s=B(bid);
+  st.prefs.genFor={mat:bk.mat,chap:bk.chap,title:'QCM ciblés · '+chapName(bk.mat,bk.chap)}; save();
+  if(!g.dataset.gen) return;
+  const txt=genPrompt(bid,s.bilan), u=((st.prefs.proj||{})[bk.mat])||'https://claude.ai/new';
+  window.open(u,'_blank','noopener');
+  (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast('Demande copiée : colle-la dans ton projet Claude'),()=>{ const ta=g.closest('.genb').querySelector('.genta'); ta.closest('details').open=true; ta.select(); toast('Copie la demande affichée'); }); });
 function sessionEnd(bid){
   stopClock();
   const bk=BANKS[bid], s=B(bid), M=MAT(bk.mat), ks=s.order, idx=ks.filter(k=>s.done[k]), missed=idx.filter(k=>disc(bid,k)), S=statsK(bid,ks);
@@ -514,7 +566,7 @@ function sessionEnd(bid){
    <div class="box2" style="max-width:900px;margin:auto"><table class="stats" style="margin-top:0"><tr><td>Réussite</td><td>${S.reuss}</td></tr><tr><td>Note</td><td>${S.note}</td></tr><tr><td>Questions de la session</td><td>${S.done} / ${S.n}</td></tr><tr><td>Questions avec erreur</td><td>${missed.length}</td></tr>${s.cfg&&s.cfg.nq?`<tr><td>Temps passé</td><td>${fmtDur(s.cfg.tm)}</td></tr><tr><td>Temps moyen par QCM</td><td>${fmtDur(s.cfg.tm/s.cfg.nq)}</td></tr><tr><td>Erreurs moyennes par QCM</td><td>${((s.cfg.err||0)/s.cfg.nq).toFixed(3).replace('.',',')}</td></tr>`:''}</table>
    ${missed.length?`<ul class="list">${missed.map(k=>`<li><span class="t">Question ${bk.q[k].n} · ${esc(bk.q[k].stem.split(',')[0])}</span><button class="btn o sm" type="button" data-k="${k}">Revoir</button><span class="m">${disc(bid,k)} discordance${disc(bid,k)>1?'s':''}</span></li>`).join('')}</ul>`:''}
    ${notionsHtml(missed.map(k=>({b:bid,k,w:wrongJ(bid,k)})))}
-   ${bilanHtml(bilanCur)}
+   ${bilanHtml(bilanCur,null,bid)}
    <div class="second sm" style="margin-top:18px">${missed.length?'<button class="btn" type="button" id="epdf">Télécharger mes erreurs (PDF)</button><button class="btn o" type="button" id="redo">Refaire les questions ratées</button>':''}<a class="btn v" href="#s-${bid}">Nouvelle session</a><a class="btn o" href="#revision">Réviser le carnet</a></div></div>`;
   view.querySelectorAll('.list button').forEach(b=>b.addEventListener('click',()=>{ const k=+b.dataset.k; s.i=s.order.indexOf(k); s.cfg={...(s.cfg||{}),chrono:false}; save(); session(bid); window.scrollTo(0,0); }));
   const ep=document.getElementById('epdf'); if(ep) ep.addEventListener('click',()=>errorsPdf('Bilan de session · '+bankLabel(bid), missed.map(k=>({b:bid,k,w:wrongJ(bid,k),ans:B(bid).ans[k]})), S));
@@ -872,10 +924,21 @@ function adder(){
     <details style="margin-top:10px"><summary style="cursor:pointer;font-size:14px">Ou coller le texte</summary><div class="row" style="margin-top:8px"><label class="fld">Texte du sujet<textarea id="ts" placeholder="Question 1&#10;Concernant …&#10;A. …&#10;B. …"></textarea></label><label class="fld">Texte du corrigé<textarea id="tc" placeholder="Question 1 – Réponse(s) : CD&#10;A. FAUX – …&#10;B. VRAI – cours"></textarea></label></div></details>
     <div class="act" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn v" type="button" id="parse">Lire les QCM</button><button class="btn o" type="button" id="blank">Créer une session vide</button></div>
     <p class="note">Format attendu : « Question 1 », l’énoncé, puis « A. » à « E. ». Corrigé : « Question 1 – Réponse(s) : CD » puis « A. VRAI – … » / « B. FAUX – … ». Les schémas se rajoutent ensuite, question par question.</p></div>
+   <div class="edbox"><h2>Coller des QCM générés par Claude</h2>
+    <label class="fld">Réponse de Claude (blocs « === SUJET === » et « === CORRIGÉ === »)<textarea id="gtx" placeholder="=== SUJET ===&#10;Question 1&#10;…&#10;=== CORRIGÉ ===&#10;Question 1 – Réponse(s) : AC&#10;A. VRAI – …"></textarea></label>
+    <div class="act" style="margin-top:10px"><button class="btn v" type="button" id="gparse">Lire les QCM générés</button></div>
+    ${st.prefs&&st.prefs.genFor?`<p class="note">Ils seront rangés dans ${esc(MAT(st.prefs.genFor.mat).name)} · ${esc(chapName(st.prefs.genFor.mat,st.prefs.genFor.chap))} (modifiable à l’étape suivante).</p>`:''}</div>
    <div class="edbox"><h2>Mes sessions ajoutées</h2>${mine.length?`<ul class="mybanks">${mine.map(b=>`<li><span><b>${esc(b.title)}</b> · ${esc(chapName(b.mat,b.chap)||'')} · ${b.q.length} QCM</span><a class="btn o sm" href="#s-${b.id}">Ouvrir</a><a class="btn o sm" href="#edit-${b.id}">Modifier</a><button class="btn o sm" type="button" data-del="${b.id}">Supprimer</button></li>`).join('')}</ul>`:'<p class="note" style="margin:0">Aucune pour l’instant.</p>'}
     <div class="tools" style="margin-top:12px"><button class="btn o sm" type="button" id="exb" ${mine.length?'':'disabled'}>Exporter mes banques</button><label class="btn o sm" for="imb" style="cursor:pointer">Importer un fichier de banques</label><input id="imb" type="file" accept=".json,application/json" hidden></div>
     <p class="note">${cdb?'Tes sessions sont enregistrées avec la page : tu les retrouves sur tous tes appareils.':'Tes sessions sont enregistrées dans ce navigateur. Exporte-les pour les retrouver ailleurs ou me les envoyer.'}</p></div>
   </div>`;
+  document.getElementById('gparse').addEventListener('click',()=>{ const raw=document.getElementById('gtx').value; const parts=raw.split(/^\s*=+\s*CORRIG[ÉE]\s*=*\s*$/im);
+    if(parts.length<2){ toast('Il manque le bloc « === CORRIGÉ === »'); return; }
+    const sl=parts[0].replace(/^\s*=+\s*SUJET\s*=*\s*$/im,'').split('\n'), cl=parts[1].split('\n');
+    const S=parseSujet(sl.map(x=>x.trim()).filter(Boolean)), C=parseCorr(cl.map(x=>x.trim()).filter(Boolean)); const {qs,warn}=buildQuestions(S,C);
+    if(!qs.length){ toast('Aucun QCM reconnu'); return; }
+    const g=(st.prefs&&st.prefs.genFor)||{mat:'histologie',chap:'',title:'QCM générés'};
+    editor({id:null,mat:g.mat,chap:g.chap,title:g.title.slice(0,60),q:qs.map(q=>({...q,pages:''}))},warn); });
   const fs=document.getElementById('fs'), fc=document.getElementById('fc');
   fs.addEventListener('change',()=>document.getElementById('fsn').textContent=fs.files[0]?fs.files[0].name:'Choisir le fichier');
   fc.addEventListener('change',()=>document.getElementById('fcn').textContent=fc.files[0]?fc.files[0].name:'Choisir le fichier (facultatif)');
