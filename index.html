@@ -116,6 +116,12 @@ main{padding:22px max(2vw,12px) 50px}
 .hpio{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 30px}
 @media (max-width:640px){.hst{grid-template-columns:1fr}}
 .em{font-variant-numeric:tabular-nums;color:var(--ink)}
+table.edt{table-layout:fixed;width:100%}table.edt th,table.edt td{text-align:center!important;width:auto!important}
+.lastbil{max-width:760px;margin:26px auto 0}.bil{margin-top:22px;border-top:1px solid var(--line);padding-top:14px}.bil h2{font-size:18px;margin:0 0 10px}.bil h3{font-size:14px;margin:16px 0 8px;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
+.dist{display:grid;gap:6px;max-width:560px}.dr{display:grid;grid-template-columns:90px 1fr 70px;align-items:center;gap:10px;font-size:14px}.db{height:12px;background:light-dark(#eee,#2a2a2e);border-radius:6px;overflow:hidden}.db span{display:block;height:100%;background:var(--red);border-radius:6px}.db span.ok{background:#1fa83a}.dv{text-align:right;font-variant-numeric:tabular-nums}
+.notions{list-style:none;padding:0!important;margin:0;border:0!important;background:none!important;display:grid;gap:8px}.notions>li{border:1px solid var(--line);border-radius:4px;padding:10px 12px}.nt{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:15px}.nq{color:var(--mute);font-size:13px}
+.tag{margin-left:4px;font-size:12px;font-weight:700;border-radius:10px;padding:1px 8px}.tag.e{color:#c4161c;border:1px solid #c4161c}.tag.h{color:#b26a00;border:1px solid #b26a00}
+.nw{margin:6px 0 0 18px;padding:0;font-size:14px;color:var(--ink)}.nw li{margin:2px 0}
 .today{font-size:16px;margin:0 0 14px}.streak{display:inline-block;margin-left:8px;font-size:13px;font-weight:700;color:var(--ses);border:1px solid var(--ses);border-radius:10px;padding:1px 9px}
 .scs{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:14px 0 8px}
 .sc{background:light-dark(#fff,#151517);border:1px solid var(--line);border-radius:4px;padding:12px 14px;display:flex;flex-direction:column;gap:3px}
@@ -394,7 +400,8 @@ function setup(bid){
    <div class="opt"><span>Ordre des items</span>${seg('iord',[['rand','Mélangés'],['seq','Dans l’ordre']])}<p>${P.iord==='seq'?'Les items gardent l’ordre A → E du sujet.':'Les items A à E sont mélangés à chaque nouvelle session.'}</p></div>
    <div class="opt"><span>Chronomètre</span>${seg('chrono',[[false,'Sans'],[true,'Avec']])}${P.chrono?'':'<p>Validation automatique à la fin du temps.</p>'}</div>
    ${P.chrono?`<div class="opt"><span>Temps par QCM</span><div class="seg" role="group">${[30,45,60,90,120].map(x=>`<button type="button" data-sec="${x}" aria-pressed="${sec===x}">${fmt(x)}</button>`).join('')}<label class="secin"><span>Autre</span><input type="number" id="secx" min="10" max="600" step="5" value="${[30,45,60,90,120].includes(sec)?'':sec}" placeholder="s" aria-label="Temps personnalisé en secondes"><span>s</span></label></div><p>${fmt(sec)} par QCM${bk.q.some(x=>x.refl)?' (1 min 30 pour les questions de réflexion)':''} · validation automatique à la fin du temps.</p></div>`:''}
-   <button class="mainbtn" type="button" id="go" style="background:var(--ses);border-radius:3px" ${pool.length?'':'disabled'}>${pool.length?`Commencer · ${Math.min(pool.length,P.n==='all'?N:+P.n)} QCM`:'Aucune question dans cette sélection'}</button></div>`;
+   <button class="mainbtn" type="button" id="go" style="background:var(--ses);border-radius:3px" ${pool.length?'':'disabled'}>${pool.length?`Commencer · ${Math.min(pool.length,P.n==='all'?N:+P.n)} QCM`:'Aucune question dans cette sélection'}</button></div>
+   ${s.bilan&&s.bilan.nq?`<div class="lastbil">${bilanHtml(s.bilan,'Dernier bilan · '+new Date(s.bilan.at).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+' à '+new Date(s.bilan.at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+(s.bilan.note&&s.bilan.note!=='indéterminée'?' · '+s.bilan.note:''))}</div>`:''}`;
   view.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{ const k=b.dataset.k; let v=b.dataset.v; if(k==='chrono') v=(v==='true'); else if(k==='n'&&v!=='all') v=+v; P[k]=v; save(); setup(bid); }));
   view.querySelectorAll('[data-sec]').forEach(b=>b.addEventListener('click',()=>{ P.secs[bk.mat]=+b.dataset.sec; save(); setup(bid); }));
   const sx=document.getElementById('secx'); if(sx) sx.addEventListener('change',()=>{ const v=Math.round(+sx.value); if(v>=10&&v<=600){ P.secs[bk.mat]=v; save(); setup(bid); } else { toast('Choisis un temps entre 10 et 600 secondes'); sx.value=''; } });
@@ -403,7 +410,7 @@ function setup(bid){
     sel=sel.slice(0,P.n==='all'?N:+P.n);
     sel.forEach(k=>{ s.ans[k]=[]; s.done[k]=false; });
     s.perm={}; if(P.iord!=='seq') sel.forEach(k=>{ s.perm[k]=shuf(bk.q[k].items.map((_,j)=>j)); });
-    s.order=sel; s.i=0; s.cfg={chrono:!!P.chrono, sec, started:Date.now()}; clock=null; save(); location.hash='b-'+bid; });
+    s.order=sel; s.i=0; s.ht={}; s.cfg={chrono:!!P.chrono, sec, started:Date.now()}; clock=null; save(); location.hash='b-'+bid; });
 }
 
 /* ---------- chronomètre ---------- */
@@ -454,12 +461,14 @@ async function sendErr(bid,n,txt){ txt=String(txt||'').trim().slice(0,2000); if(
   st.errata=(st.errata||[]); st.errata.push({bank:bid,q:n,txt,at:Date.now()}); save();
   try{ if(dbAll) await dbAll.collection('errata').add({bank:bid,q:n,txt,at:Date.now()}); }catch(e){}
   errOpen=false; session(bid); toast('Merci, erratum enregistré'); }
-function toggle(j){ const s=B(cur), k=s.order[s.i]; if(s.done[k]) return; const a=s.ans[k], x=a.indexOf(j); x<0?a.push(j):a.splice(x,1); save(); session(cur); }
+function toggle(j){ const s=B(cur), k=s.order[s.i]; if(s.done[k]) return;
+  if(qT.key===cur+':'+k&&qT.phase==='ans'){ const now=elapsed(QCAP), dt=Math.max(0,now-(qT.la||0)); qT.la=now; s.ht=s.ht||{}; const h=s.ht[k]=s.ht[k]||{}; h[j]=(h[j]||0)+dt; }
+  const a=s.ans[k], x=a.indexOf(j); x<0?a.push(j):a.splice(x,1); save(); session(cur); }
 /* ---------- temps d'étude ---------- */
 const QCAP=5*60000, RCAP=2*60000;
 let qT={key:null,t0:0,hid:0,hs:0,phase:'ans',mat:null,bid:null};
 document.addEventListener('visibilitychange',()=>{ if(document.hidden) qT.hs=Date.now(); else if(qT.hs){ qT.hid+=Date.now()-qT.hs; qT.hs=0; } });
-function startQ(key,mat,bid){ if(qT.key!==key){ flushQ(); qT={key,t0:Date.now(),hid:0,hs:0,phase:'ans',mat,bid}; } }
+function startQ(key,mat,bid){ if(qT.key!==key){ flushQ(); qT={key,t0:Date.now(),hid:0,hs:0,phase:'ans',mat,bid,la:0}; } }
 function elapsed(cap){ const d=Date.now()-qT.t0-qT.hid-(qT.hs?Date.now()-qT.hs:0); return Math.max(0,Math.min(cap,d)); }
 function spent(cap){ const v=elapsed(cap); qT.key=null; return v; }
 function flushQ(){ if(qT.key&&qT.phase==='corr'){ const ms=elapsed(QCAP); st.stats=st.stats||{}; const D0=st.stats[dayKey()]=st.stats[dayKey()]||{}; const m=(D0.m=D0.m||{})[qT.mat]=(D0.m[qT.mat]||{q:0,it:0,t:0,err:0}); m.t+=ms;
@@ -467,7 +476,7 @@ function flushQ(){ if(qT.key&&qT.phase==='corr'){ const ms=elapsed(QCAP); st.sta
 window.addEventListener('pagehide',flushQ);
 const dayKey=(d=new Date())=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 function logStudy(mat,kind,items,ms,err){ st.stats=st.stats||{}; const D0=st.stats[dayKey()]=st.stats[dayKey()]||{};
-  if(kind==='q'){ const m=(D0.m=D0.m||{})[mat]=(D0.m[mat]||{q:0,it:0,t:0,err:0}); m.q++; m.it+=items; m.t+=ms; m.err=(m.err||0)+(err||0); }
+  if(kind==='q'){ const m=(D0.m=D0.m||{})[mat]=(D0.m[mat]||{q:0,it:0,t:0,err:0}); m.q++; m.it+=items; m.t+=ms; m.err=(m.err||0)+(err||0); const ed=m.ed=m.ed||[0,0,0,0,0,0]; ed[Math.min(5,err||0)]++; }
   else { const r=D0.r=D0.r||{n:0,t:0}; r.n++; r.t+=ms; } }
 function validate(){ const s=B(cur), k=s.order[s.i]; if(s.done[k]) return; s.done[k]=true; stopClock(); clock=null;
   const ms=elapsed(QCAP), nIt=BANKS[cur].q[k].items.length, nErr=BANKS[cur].q[k].items.filter((it,j)=>s.ans[k].includes(j)!==it.v).length;
@@ -476,19 +485,41 @@ function validate(){ const s=B(cur), k=s.order[s.i]; if(s.done[k]) return; s.don
   const w=BANKS[cur].q[k].items.filter((it,j)=>s.ans[k].includes(j)!==it.v); w.forEach(it=>addCard(cur+':'+it.id));
   save(); counts(); session(cur); }
 function nextQ(){ flushQ(); B(cur).i++; errOpen=false; clock=null; save(); session(cur); window.scrollTo(0,0); }
+const hesThr=mat=>mat==='sante-publique'?20000:40000;
+function topicOf(q){ const s=q.stem.replace(/\s+/g,' ').trim();
+  let m=s.match(/concernant\s+(.+?)(?:\s*[,:?]|\s+indiquez|\s+laquelle|$)/i);
+  if(m&&/^(cette|ces|cet|la|le) (situation|cas|énoncé)/i.test(m[1])) m=null;
+  let r=m?m[1]:(s.split(/(?<=[.!?])\s+/)[0]||s); r=r.replace(/[\s:,.]+$/,'');
+  if(r.length>130) r=r.slice(0,127).replace(/\s+\S*$/,'')+'…';
+  return r.charAt(0).toUpperCase()+r.slice(1); }
+function bilanData(bid){ const bk=BANKS[bid], s=B(bid), thr=hesThr(bk.mat), dist=[0,0,0,0,0,0], items=[], done=s.order.filter(k=>s.done[k]);
+  done.forEach(k=>{ const q=bk.q[k], h=(s.ht||{})[k]||{}, d=disc(bid,k); dist[Math.min(d,5)]++;
+    const its=q.items.map((it,j)=>({x:it.c||it.t, ko:s.ans[k].includes(j)!==it.v, t:h[j]||0})).filter(o=>o.ko||o.t>thr);
+    if(its.length) items.push({n:q.n, topic:topicOf(q), err:d, hes:its.filter(o=>o.t>thr).length, w:its.map(o=>({x:o.x,ko:o.ko,t:Math.round(o.t/1000)}))}); });
+  items.sort((a,b)=>b.err-a.err||b.hes-a.hes||a.n-b.n);
+  return {at:Date.now(),thr,dist,items,nq:done.length}; }
+function bilanHtml(bd,title){ if(!bd||!bd.nq) return '';
+  const mx=Math.max(1,...bd.dist), sec=Math.round(bd.thr/1000);
+  const bars=bd.dist.map((v,i)=>`<div class="dr"><span class="dl">${i} erreur${i>1?'s':''}</span><span class="db"><span style="width:${Math.round(v/mx*100)}%" class="${i===0?'ok':''}"></span></span><span class="dv">${v} QCM</span></div>`).join('');
+  const notes=bd.items.map(it=>`<li><div class="nt"><b>${esc(it.topic)}</b> <span class="nq">Q${it.n}</span>${it.err?`<span class="tag e">${it.err} erreur${it.err>1?'s':''}</span>`:''}${it.hes?`<span class="tag h">${it.hes} hésitation${it.hes>1?'s':''}</span>`:''}</div><ul class="nw">${it.w.map(o=>`<li>${esc(o.x)} ${o.ko?'<span class="tag e">erreur</span>':''}${o.t>Math.round(bd.thr/1000)?`<span class="tag h">${o.t} s</span>`:''}</li>`).join('')}</ul></li>`).join('');
+  return `<section class="bil"><h2>${title||'Bilan détaillé'}</h2>
+   <h3>QCM par nombre d’erreurs</h3><div class="dist">${bars}</div>
+   <h3>Notions à retravailler</h3>${bd.items.length?`<p class="note" style="margin:0 0 8px">Pour chaque QCM, les items que tu as ratés et ceux sur lesquels tu as hésité plus de ${sec} s avant de cocher, même si ta réponse était juste.</p><ul class="notions">${notes}</ul>`:'<p class="note">Aucune erreur ni hésitation : rien à retravailler sur cette session.</p>'}</section>`; }
 function sessionEnd(bid){
   stopClock();
   const bk=BANKS[bid], s=B(bid), M=MAT(bk.mat), ks=s.order, idx=ks.filter(k=>s.done[k]), missed=idx.filter(k=>disc(bid,k)), S=statsK(bid,ks);
+  const bilanCur=bilanData(bid); if(!s.bilan||s.bilan.sid!==(s.cfg&&s.cfg.started)||s.bilan.nq!==bilanCur.nq){ s.bilan={...bilanCur,sid:s.cfg&&s.cfg.started,note:S.note,reuss:S.reuss}; save(); }
   view.innerHTML=crumb([['accueil','Matières'],['m-'+bk.mat,M.name],['c-'+bk.mat+'-'+bk.chap,chapName(bk.mat,bk.chap)],[null,bk.title]])+
    `<div class="title"><h1>Session en ${esc(M.name)} · ${esc(chapName(bk.mat,bk.chap))}</h1><p>Bilan de la session</p></div>
    <div class="box2" style="max-width:900px;margin:auto"><table class="stats" style="margin-top:0"><tr><td>Réussite</td><td>${S.reuss}</td></tr><tr><td>Note</td><td>${S.note}</td></tr><tr><td>Questions de la session</td><td>${S.done} / ${S.n}</td></tr><tr><td>Questions avec erreur</td><td>${missed.length}</td></tr>${s.cfg&&s.cfg.nq?`<tr><td>Temps passé</td><td>${fmtDur(s.cfg.tm)}</td></tr><tr><td>Temps moyen par QCM</td><td>${fmtDur(s.cfg.tm/s.cfg.nq)}</td></tr><tr><td>Erreurs moyennes par QCM</td><td>${((s.cfg.err||0)/s.cfg.nq).toFixed(3).replace('.',',')}</td></tr>`:''}</table>
    ${missed.length?`<ul class="list">${missed.map(k=>`<li><span class="t">Question ${bk.q[k].n} · ${esc(bk.q[k].stem.split(',')[0])}</span><button class="btn o sm" type="button" data-k="${k}">Revoir</button><span class="m">${disc(bid,k)} discordance${disc(bid,k)>1?'s':''}</span></li>`).join('')}</ul>`:''}
    ${notionsHtml(missed.map(k=>({b:bid,k,w:wrongJ(bid,k)})))}
+   ${bilanHtml(bilanCur)}
    <div class="second sm" style="margin-top:18px">${missed.length?'<button class="btn" type="button" id="epdf">Télécharger mes erreurs (PDF)</button><button class="btn o" type="button" id="redo">Refaire les questions ratées</button>':''}<a class="btn v" href="#s-${bid}">Nouvelle session</a><a class="btn o" href="#revision">Réviser le carnet</a></div></div>`;
   view.querySelectorAll('.list button').forEach(b=>b.addEventListener('click',()=>{ const k=+b.dataset.k; s.i=s.order.indexOf(k); s.cfg={...(s.cfg||{}),chrono:false}; save(); session(bid); window.scrollTo(0,0); }));
   const ep=document.getElementById('epdf'); if(ep) ep.addEventListener('click',()=>errorsPdf('Bilan de session · '+bankLabel(bid), missed.map(k=>({b:bid,k,w:wrongJ(bid,k),ans:B(bid).ans[k]})), S));
   const r=document.getElementById('redo'); if(r) r.addEventListener('click',()=>{ const P=st.prefs||{}; const ord=P.ord==='seq'?missed.slice():shuf(missed.slice());
-    s.perm=s.perm||{}; missed.forEach(k=>{s.ans[k]=[];s.done[k]=false; if(P.iord==='seq') delete s.perm[k]; else s.perm[k]=shuf(BANKS[bid].q[k].items.map((_,j)=>j));});
+    s.perm=s.perm||{}; missed.forEach(k=>{s.ans[k]=[];s.done[k]=false; if(s.ht) delete s.ht[k]; if(P.iord==='seq') delete s.perm[k]; else s.perm[k]=shuf(BANKS[bid].q[k].items.map((_,j)=>j));});
     s.order=ord;s.i=0;clock=null;save();session(bid);window.scrollTo(0,0);});
 }
 
@@ -521,8 +552,8 @@ function rate(g){ logStudy(BANKS[ITEM[rev.id].b].mat,'r',1,spent(RCAP)); grade(r
 /* ---------- carnet ---------- */
 const fmtErr=a=>a.q?(a.err/a.q).toFixed(3).replace('.',','):'—';
 function fmtDur(ms){ const s=Math.round((ms||0)/1000); if(s<60) return s+' s'; const m=Math.floor(s/60), r=s%60; if(m<60) return m+' min'+(r?' '+String(r).padStart(2,'0')+' s':''); const h=Math.floor(m/60); return h+' h '+String(m%60).padStart(2,'0')+' min'; }
-function aggr(days,mfil){ const a={q:0,it:0,t:0,r:0,rt:0,err:0}; days.forEach(k=>{ const D0=(st.stats||{})[k]; if(!D0) return;
-  Object.entries(D0.m||{}).forEach(([m,v])=>{ if(mfil&&m!==mfil) return; a.q+=v.q; a.it+=v.it; a.t+=v.t; a.err+=(v.err||0); }); if(!mfil&&D0.r){ a.r+=D0.r.n; a.rt+=D0.r.t; } }); return a; }
+function aggr(days,mfil){ const a={q:0,it:0,t:0,r:0,rt:0,err:0,ed:[0,0,0,0,0,0]}; days.forEach(k=>{ const D0=(st.stats||{})[k]; if(!D0) return;
+  Object.entries(D0.m||{}).forEach(([m,v])=>{ if(mfil&&m!==mfil) return; a.q+=v.q; a.it+=v.it; a.t+=v.t; a.err+=(v.err||0); (v.ed||[]).forEach((x,i)=>a.ed[i]+=x); }); if(!mfil&&D0.r){ a.r+=D0.r.n; a.rt+=D0.r.t; } }); return a; }
 const lastDays=n=>Array.from({length:n},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()-(n-1-i)); return dayKey(d); });
 let smat='';
 function statsPage(){ const all=Object.keys(st.stats||{}).sort(), today=dayKey();
@@ -541,6 +572,8 @@ function statsPage(){ const all=Object.keys(st.stats||{}).sort(), today=dayKey()
    <div class="box2"><p class="today">${A0.q||A0.r?`Aujourd’hui, tu as fait <b>${A0.q} QCM</b> (${A0.it} items)${A0.r?` et révisé <b>${A0.r} carte${A0.r>1?'s':''}</b>`:''} en <b>${fmtDur(A0.t+A0.rt)}</b>${A0.q?` · ${fmtDur(A0.t/A0.q)} par QCM en moyenne · ${fmtErr(A0)} erreur${A0.err/A0.q>=2?'s':''} par QCM en moyenne`:''}.`:'Tu n’as encore rien fait aujourd’hui.'}${streak>1?` <span class="streak">${streak} jours d’affilée</span>`:''}</p>
    <div class="tools"><label for="sm">Matière</label><select id="sm"><option value="">Toutes</option>${mats.map(m=>`<option value="${m.id}" ${m.id===smat?'selected':''}>${esc(m.name)}</option>`).join('')}</select></div>
    <div class="scs">${per.map(card).join('')}</div>
+   <h2 class="sh">QCM selon le nombre d’erreurs <small>(items mal répondus sur le QCM)</small></h2>
+   <table class="stats mt edt"><tr><th></th>${[0,1,2,3,4,5].map(i=>`<th>${i} erreur${i>1?'s':''}</th>`).join('')}</tr>${per.map(([l,a])=>`<tr><td>${l}</td>${a.ed.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</table>
    <h2 class="sh">Temps d’étude par jour · 30 derniers jours <small>(minutes)</small></h2>
    <div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Minutes d’étude par jour sur les 30 derniers jours">${grid}${bars}${xl}</svg><div class="tip" id="tip" hidden></div></div>
    ${smat?'':`<h2 class="sh">Par matière · depuis le début</h2><table class="stats mt"><tr><th>Matière</th><th>QCM</th><th>Items</th><th>Temps</th><th>Moyenne / QCM</th><th>Erreurs moyennes / QCM</th></tr>${mats.map(m=>{ const a=aggr(all,m.id); return `<tr><td>${esc(m.name)}</td><td>${a.q}</td><td>${a.it}</td><td>${fmtDur(a.t)}</td><td>${a.q?fmtDur(a.t/a.q):'—'}</td><td>${fmtErr(a)}</td></tr>`; }).join('')||'<tr><td colspan="6">Aucune donnée pour l’instant.</td></tr>'}</table>`}
